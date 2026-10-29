@@ -29,7 +29,8 @@ A submission scoring 100/200 or more (target 150+), made of:
 | Slot convention: 0-based, penalty charges σ+1 | Decided (see README) |
 | Validator, brute force, `run.py` (Phase A) | Done 2026-10-29: 22 tests pass |
 | Penalty P (T2): `solver/penalty.py`, `report/sections/t2_penalty.tex` (Phase B) | Done 2026-10-29: 30 tests pass |
-| Algorithm (T3), proofs (T1, T4) | **Not started** |
+| Algorithm SSD-R (T3) + implementation (T5): `solver/algorithm.py`, `report/sections/t3_algorithm.tex`, tight instances (Phases C+F) | Done 2026-10-29: 46 tests pass |
+| Proofs (T1, T4) | **Not started** |
 | Benchmarks, report, journal (T6, T7) | **Not started** |
 
 Everything is on `main` as one commit. v1 planned a `chore/scaffold` branch, which was not created.

@@ -29,6 +29,7 @@ def parse_args(argv=None):
     ap.add_argument("--solver", choices=["heuristic", "brute"], default="heuristic")
     ap.add_argument("--out", help="write result JSON here")
     ap.add_argument("--save-instance", help="write the generated instance JSON here")
+    ap.add_argument("--trace", action="store_true", help="print the heuristic's steps to stderr")
     args = ap.parse_args(argv)
     if args.n is not None and args.K is None:
         ap.error("--K is required with --n")
@@ -44,7 +45,7 @@ def get_instance(args) -> Instance:
     return inst
 
 
-def solve(inst: Instance, solver: str) -> Result:
+def solve(inst: Instance, solver: str, trace: list | None = None) -> Result:
     """Run the chosen solver and package its output as a Result.
 
     Every assignment reported as feasible is re-checked with the
@@ -59,8 +60,8 @@ def solve(inst: Instance, solver: str) -> Result:
         reason = {"optimal": "", "infeasible": "PROVEN_INFEASIBLE: exhaustive search found no assignment",
                   "limit": "NOT_FOUND: brute-force node limit reached"}[ex.status]
     else:
-        from solver.algorithm import solve as heuristic  # added in Phase F
-        sigma, reason = heuristic(inst)
+        from solver.algorithm import solve as heuristic
+        sigma, reason = heuristic(inst, trace)
     runtime_ms = int((time.perf_counter() - start) * 1000)
 
     res = Result(runtime_ms=runtime_ms, violation_reason=reason)
@@ -78,7 +79,10 @@ def solve(inst: Instance, solver: str) -> Result:
 
 def main(argv=None):
     args = parse_args(argv)
-    res = solve(get_instance(args), args.solver)
+    trace = [] if args.trace else None
+    res = solve(get_instance(args), args.solver, trace)
+    if trace:
+        print("\n".join(trace), file=sys.stderr)
     if args.out:
         save_result(res, args.out)
     print(res.to_json())
