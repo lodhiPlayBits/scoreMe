@@ -1,0 +1,97 @@
+\section{Task 2: Penalty Function $P(\sigma)$}
+
+\subsection{Definition}
+For a complete assignment $\sigma$, let
+$\ell_{s,k}(\sigma) = \sum_{i:\sigma(t_i)=s} r_k(t_i)$ be the load of
+dimension $k$ in slot $s$, and $u_{s,k} = \ell_{s,k}/C_k(s)$ its
+utilisation. Let $\mathcal{C}_k = \{s : C_k(s) > 0\}$ be the slots that have
+capacity in dimension $k$.
+\begin{align*}
+P(\sigma) &= P_{\text{base}}(\sigma) + \lambda_R\, R(\sigma) + \lambda_B\, B(\sigma),
+  \qquad \lambda_R = \lambda_B = 1\\
+P_{\text{base}}(\sigma) &= \sum_{i} w_i\,(\sigma(t_i)+1)\\
+R(\sigma) &= \sum_{i:\,u_i > l_i} w_i \left(\frac{\sigma(t_i)-l_i}{u_i-l_i}\right)^{2}
+  && \text{(SLA breach risk)}\\
+B(\sigma) &= W \cdot \frac{1}{\sum_k |\mathcal{C}_k|}
+  \sum_{k=1}^{d} \sum_{s\in\mathcal{C}_k} \left(u_{s,k}-\bar u_k\right)^2,
+  \quad \bar u_k = \frac{1}{|\mathcal{C}_k|}\sum_{s\in\mathcal{C}_k} u_{s,k}
+  && \text{(load imbalance)}
+\end{align*}
+Here $[l_i,u_i]$ is the SLA window of $t_i$; the $u_i$ in $R$ is the window
+end, not a utilisation.
+
+\subsection{Motivation in the ScoreMe context}
+\textbf{SLA breach risk $R$.} A bureau pull placed in the last slot of its
+window has no slack left. A single retry against a slow bureau API, or a
+delayed upstream OCR job, then breaches the lender SLA. $R$ measures where
+each task sits \emph{inside its own window}: 0 at the window start, rising to
+$w_i$ at the window end. It is squared because risk is concentrated near the
+deadline. Moving a task from the middle of its window to the end costs three
+times as much as moving it from the start to the middle.
+
+\textbf{Load imbalance $B$.} If one slot runs at 100\% GPU while the next
+runs at 10\%, the OCR cluster has no headroom in the busy slot for retries or
+late-arriving jobs, and the idle slot wastes capacity that has already been
+paid for. $B$ is the mean squared deviation of utilisation from its
+per-dimension mean, scaled by $W$ so that it is in the same units as
+$P_{\text{base}}$. A slot with zero capacity in some dimension can hold no
+load in it. Its utilisation would be $0/0$, so it is left out of that
+dimension. Counting it as 0\% would push work into a slot that cannot take
+any.
+
+\subsection{Required properties}
+\begin{enumerate}
+\item \textbf{Polynomial time.} $P_{\text{base}}$ and $R$ take one pass over
+  the tasks, $O(n)$. $B$ builds the load table in $O(nd)$ and then reads it
+  in $O(Kd)$. In total, $P$ takes $O(nd + Kd)$ time.
+\item \textbf{Monotonically meaningful.} Each term is non-negative and falls
+  exactly when the matching operational quantity improves. $P_{\text{base}}$
+  falls when weighted delay falls. $R$ falls when tasks move away from their
+  deadlines. $B$ is 0 if and only if every dimension is equally utilised in
+  every usable slot.
+\item \textbf{Non-trivial.} The extension is not a constant, and it is not a
+  rescaling of $P_{\text{base}}$. Take two unit tasks $A$ with window $[0,1]$
+  and $B$ with window $[0,2]$, and $K=3$. The assignments $(A{\to}1, B{\to}0)$
+  and $(A{\to}0, B{\to}1)$ both have $P_{\text{base}} = 3$. But $R = 1$ for
+  the first, because $A$ is at its deadline, and $R = 1/4$ for the second. So
+  $P$ prefers the second, which $P_{\text{base}}$ cannot tell apart
+  (\texttt{test\_extension\_is\_not\_trivial}).
+\end{enumerate}
+
+\subsection{Bound used in Task 4}
+\begin{lemma}\label{lem:sandwich}
+For every feasible $\sigma$:
+$P_{\text{base}}(\sigma) \le P(\sigma) \le \beta\, P_{\text{base}}(\sigma)$, where
+$\beta = 1 + \lambda_R + \lambda_B/4 = 2.25$.
+\end{lemma}
+\begin{proof}
+$R,B \ge 0$ gives the lower bound. Each ratio in $R$ lies in $[0,1]$, so
+$R \le W$. Feasibility (F2) gives $u_{s,k}\in[0,1]$, and the variance of
+values in $[0,1]$ is at most $1/4$, so $B \le W/4$. Finally,
+$\sigma(t_i)+1\ge 1$ gives $W \le P_{\text{base}}(\sigma)$. Hence
+$P \le P_{\text{base}} + \lambda_R W + \lambda_B W/4 \le \beta\,P_{\text{base}}$.
+\end{proof}
+This lemma lets an approximation ratio for $P_{\text{base}}$ carry over to
+$P$ with an extra factor of at most $\beta$ (Task 4). It also makes the
+brute-force bound valid for $P$. The bound
+$\text{cost} + \sum_{\text{unassigned}} w_i(l_i+1)$ is a lower bound on
+$P_{\text{base}}$, and therefore on $P$.
+
+\subsection{Worked example (toy instance)}
+For $\sigma = (T1{\to}1, T2{\to}0, T3{\to}0, T4{\to}1, T5{\to}1, T6{\to}2)$,
+which is the exact optimum:
+$P_{\text{base}} = 33$, and
+$R = 5\cdot\tfrac14 + 3\cdot\tfrac19 + 2\cdot\tfrac14 = 2.0833$.
+The utilisation vectors over slots $0..3$ are: CPU and RAM
+$(0.1875, 1, 0.125, 0)$; GPU $(0,1,0,0)$; Net $(0.833, 0.5, 0.25, 0)$.
+They give $B = 19 \cdot 2.3704/16 = 2.8149$, so $P = 37.898$. These values
+are asserted in \texttt{tests/test\_penalty.py}.
+
+\subsection{Observation}
+On the three small benchmarks (seeds 1, 2, 3), the exact optimum under $P$ is
+the \emph{same} assignment as the optimum under $P_{\text{base}}$. The
+extension adds 9--15\% to the value but did not change the best schedule.
+With $\lambda_R=\lambda_B=1$, delay dominates, and $R$ and $B$ mostly break
+ties between near-equal schedules. A platform that treats SLA risk as more
+important would raise $\lambda_R$. The bound in Lemma~\ref{lem:sandwich}
+then grows to $\beta = 1+\lambda_R+\lambda_B/4$.

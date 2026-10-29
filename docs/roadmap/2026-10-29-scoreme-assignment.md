@@ -28,7 +28,8 @@ A submission scoring 100/200 or more (target 150+), made of:
 | `tests/test_instance.py`: 10 tests | Pass |
 | Slot convention: 0-based, penalty charges σ+1 | Decided (see README) |
 | Validator, brute force, `run.py` (Phase A) | Done 2026-10-29: 22 tests pass |
-| Penalty P (T2), algorithm (T3), proofs (T1, T4) | **Not started** |
+| Penalty P (T2): `solver/penalty.py`, `report/sections/t2_penalty.tex` (Phase B) | Done 2026-10-29: 30 tests pass |
+| Algorithm (T3), proofs (T1, T4) | **Not started** |
 | Benchmarks, report, journal (T6, T7) | **Not started** |
 
 Everything is on `main` as one commit. v1 planned a `chore/scaffold` branch, which was not created.

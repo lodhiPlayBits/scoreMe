@@ -14,7 +14,8 @@ import time
 
 from generator import generate_instance
 from solver.instance import Instance, Result, load_instance, save_instance, save_result
-from solver.validate import check, p_base
+from solver.penalty import penalty
+from solver.validate import check
 
 
 def parse_args(argv=None):
@@ -53,7 +54,7 @@ def solve(inst: Instance, solver: str) -> Result:
     start = time.perf_counter()
     if solver == "brute":
         from solver.bruteforce import solve_exact
-        ex = solve_exact(inst)
+        ex = solve_exact(inst, objective=penalty)
         sigma = ex.sigma
         reason = {"optimal": "", "infeasible": "PROVEN_INFEASIBLE: exhaustive search found no assignment",
                   "limit": "NOT_FOUND: brute-force node limit reached"}[ex.status]
@@ -71,7 +72,7 @@ def solve(inst: Instance, solver: str) -> Result:
             res.violation_reason = "INVALID_OUTPUT: " + "; ".join(errors)
         else:
             res.feasible = True
-            res.penalty = p_base(inst, sigma)
+            res.penalty = penalty(inst, sigma)
     return res
 
 
