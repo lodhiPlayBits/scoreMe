@@ -1,224 +1,233 @@
-# Roadmap: ScoreMe MSME Pipeline Scheduling Assignment
+# Roadmap: ScoreMe MSME Pipeline Scheduling Assignment (v2)
 
 - **Date:** 2026-10-29
-- **Status:** approved
-- **Source:** `ScoreMe_MSME_Pipeline_Scheduling_Assignment (1).docx`. Line numbers below refer to its extracted text, `assignment.txt`.
+- **Status:** active. v2 replaces v1.
+- **Source:** `ScoreMe_MSME_Pipeline_Scheduling_Assignment_No_AI_Restrictions.pdf`
 
-## Goal and success measure
+## What changed from v1
 
-**Goal:** Take the assignment from an empty folder to a submission that the candidate wrote and can defend without notes, with an AI Usage Log that is honest from session #1.
+- **No AI rules.** The new spec has no AI restrictions and no AI usage log. The [CANDIDATE]/[AI-OK] tags, rule A4, the AI log, Q2 and Q3 are all removed.
+- **The Task 5 title says "Java", but the body says Python 3.10+**, and Java needs prior written approval. We stay with **Python**.
+- **The viva (T8, 30 pts) is still the main risk.** A score below 15/30 caps the total at 120/200, so you must be able to explain every line yourself. The drills stay in the plan.
 
-**Success measure:**
-- Every rubric deliverable exists: T1–T8 plus the AI log (lines 9, 67–184).
-- Every phase's "done when" check passes.
-- Two closed-book viva drills pass the written checklist.
-- Target: at least 100/200, with the viva at 15/30 or more.
-  - A viva below 15 caps the total at 120 (line 211).
-  - Being unable to explain the work zeroes the whole assignment (line 184).
+## Goal
 
-## Current state
+A submission scoring 100/200 or more (target 150+), made of:
 
-- **Greenfield.** `D:\scoreMe` is empty and is not a git repo.
-- **Facts from the spec (read from the text, not designed):**
-  - **Slot indexing conflict.** The generator's windows are 0-based (lines 202–203). The prose and the toy instance are 1-based (lines 16, 61–62). P_base charges the slot index itself (line 42).
-  - **Generator limits.** The generator always produces d=4 and uniform slot capacities (lines 198, 201). The viva asks about a 5th dimension and unequal capacities (lines 179–180), so those cases need hand-written JSON tests.
-  - **A concept-level constraint, logged as AI-supplied.** Task 1 shows that feasibility is NP-hard. So no polynomial-time algorithm can have Task 4's "always finds a feasible assignment" (line 118) or an unconditional α (line 119), unless P=NP. How to scope those claims is the candidate's decision.
+- one report (PDF) with sections T1 to T8
+- the repo: code, tests, `run.py`, benchmark CSV and charts
 
-## Assumptions
+## Current state (checked 2026-10-29)
 
-- **A1 Team and time:** one candidate, part-time, no known deadline. Phase sizes are relative.
-- **A2 Stack:** Python 3.12, the standard library, numpy and matplotlib (pandas optional). Tests use `unittest`. No new dependencies.
-- **A3 Integrity tags:**
-  - **[CANDIDATE]:** the candidate writes it alone.
-  - **[AI-OK]:** AI may write boilerplate: I/O, data classes, CLI, charts and table formatting (lines 134, 139).
-  - **[MIXED]:** the candidate owns the logic and AI does the plumbing.
-  - The validator, penalty, brute force, infeasibility detection and all solver logic are [CANDIDATE].
-- **A4 Claude's role on [CANDIDATE] files (pending Q3):** Claude may run commands and paste the raw output. Claude must not read and explain the code, diagnose failures, suggest fixes, or edit. kit:code-reviewer runs only on [AI-OK] diffs.
-- **A5 Slot convention (decided 2026-10-29, Q1):** slots are 0-based, exactly as the generator produces them. The penalty charges (σ(tᵢ)+1), so slot 0 is not free and OPT > 0. The toy instance is stored with a −1 shift. This choice is AI-suggested idea (g) and must be logged in entry #1.
-- **A6 CLI:** `run.py --n --K --density --seed` imports the unmodified generator, writes the instance JSON, and calls a solver entry point that takes a JSON path (lines 130, 145–157).
-- **A7 Brute force:** exact search is fast enough for n≤12 and K≤4. The worst case is 4^12 ≈ 1.7e7 assignments before pruning.
-- **A8 Report and submission:** LaTeX, or Markdown exported to PDF (Q6). The submission is one PDF with sections T1–T8, plus the repo.
-- **A9 Git:** branches named `<type>/<slug>`, draft PRs or local branches (Q7). The user merges.
+| Item | Status |
+|---|---|
+| Repo, `generator.py` unmodified (sha256 checked by a test) | Done |
+| `solver/instance.py`: `Instance`/`Result` classes, JSON I/O, shape checks for any d and per-slot capacities | Done |
+| `instances/toy.json`: toy instance with 0-based windows | Done |
+| `tools/census.py`: statistics for the 9 benchmarks | Done |
+| `tests/test_instance.py`: 10 tests | Pass |
+| Slot convention: 0-based, penalty charges σ+1 | Decided (see README) |
+| Validator, brute force, `run.py` (Phase A) | Done 2026-10-29: 22 tests pass |
+| Penalty P (T2), algorithm (T3), proofs (T1, T4) | **Not started** |
+| Benchmarks, report, journal (T6, T7) | **Not started** |
+
+Everything is on `main` as one commit. v1 planned a `chore/scaffold` branch, which was not created.
+
+### What the census shows (raw output from `tools/census.py`)
+
+| Instance | Dimension over total capacity | Consequence |
+|---|---|---|
+| n=150 K=12 seed=12 | Net 82.8 > 72 | Infeasible |
+| n=200 K=15 seed=20 | Net 94.6 > 90 | Infeasible |
+| n=200 K=5 seed=21 | GPU 103.8 > 40, Net 98.2 > 30 | Infeasible |
+
+- **Why this happens:** when `cap[d] // (n//K+1)` is 0 or 1, the generator draws resources from `uniform(1, 0)` or `uniform(1, 1)`, so every task needs roughly 0.5 to 1 unit. The Net and GPU totals then exceed capacity.
+- **Consequence:** these 3 rows must come out `feasible=false`, with a *proof-based* `violation_reason`. That is the "correct infeasibility detection" the T5 rubric asks for. Explaining these rows is also your T6 anomaly analysis.
+- **The other 6 instances still need checking.** A global sum below capacity does not make an instance feasible.
+- **Windows have width ≥ 2.** Every generator window satisfies `hi ≥ lo+1`.
 
 ## Phases
 
-### Phase 0: Scaffold, validator, brute force, census (S)
+Each phase lists its deliverable and how you know it is done. Sizes: S < half a day, M ≈ 1 day, L ≈ 2 days.
 
-- **Delivers:** a repo where any instance can be generated, checked against F1–F3, and solved exactly when small.
-- **Work:**
-  - [AI-OK] Run `git init`, then `git switch -c chore/scaffold` on the unborn branch. Copy the generator unchanged into `generator.py` and record its sha256 in the README. Add JSON I/O and data classes that work for any d and for per-slot capacities.
-  - [CANDIDATE] Write AI log entry #1, covering this roadmap session (v1 and v2). Mark each idea below as re-derived, rejected, or used with attribution.
-    - (a) total demand vs total capacity per dimension
-    - (b) a demand check over each slot range [a,b]
-    - (c) a bipartiteness check on tasks confined to [K-2,K-1], with triangle-count estimates
-    - (d) the generator's resource values collapsing to (0,1], with estimated utilisations
-    - (e) the options for scoping the guarantee
-    - (f) gadget ablation for the reduction
-    - (g) using σ+1 in the penalty
-    - (h) a test where two assignments tie on P_base
-    - (i) a separate `random.Random` for the solver
-    - (j) separating "proven infeasible" from "not found"
-    - (k) comparing `--trace` output against the hand trace
-  - [CANDIDATE] `validate.py`: checks F1, F2 (with a float tolerance) and F3, and computes P_base.
-  - [CANDIDATE] `bruteforce.py`: exact search with an `objective` parameter.
-  - [AI-OK] `tools/census.py`: prints raw descriptive statistics for the 9 benchmarks, with no verdict. The statistics are n, K, edge count, a histogram of window widths, and demand and capacity sums per dimension. For seeds 1–3 it also prints the brute-force status and the optimal P_base.
-- **Depends on:** Q1. The gate is satisfied: 0-based slots with a σ+1 penalty, decided 2026-10-29.
+### Phase A: Finish the core tools (S)
+
+- `solver/validate.py`
+  - `check(inst, sigma)` returns a list of F1, F2 and F3 violations.
+    - F2 uses a float tolerance, e.g. `1e-9`.
+    - Handle a slot with zero capacity.
+  - `p_base(inst, sigma)` = Σ w·(σ+1).
+- `solver/bruteforce.py`
+  - Exact DFS that takes a pluggable `objective`.
+  - Prune by window, then by conflict, then by capacity, then by a bound (partial cost plus Σ w·(lo+1) for the unassigned tasks).
+  - Order tasks by window width.
+- `run.py`
+  - Takes `--n --K --density --seed`, or `--input file.json`.
+  - Also takes `--out`, plus `--brute` for small n.
+  - Prints JSON with exactly the 5 keys.
 - **Done when:**
-  - The README states the slot convention and where it came from.
-  - The toy instance is stored with a documented −1 shift.
-  - `python -m unittest discover -s tests` passes.
-  - `sha256sum generator.py` matches the README.
-  - `python tools/census.py` prints 9 rows.
-  - `AI_USAGE_LOG.md` contains entry #1.
-  - `git branch --show-current` prints `chore/scaffold`.
-- **Biggest risk:** building on an unconfirmed slot convention. The Q1 gate prevents this.
+  - The brute force solves the toy instance and seeds 1, 2 and 3.
+  - Every brute-force result passes `check`.
+  - The tests pass.
 
-### Phase 1: Co-design the penalty, algorithm, α sketch and tight-instance sketch (T2, T3) (L)
+### Phase B: Penalty function, T2 (S, 15 pts)
 
-- **Delivers:**
-  - P(σ) as code.
-  - A named algorithm as numbered pseudocode, with its rationale and 2 rejected alternatives.
-  - A design that is shaped to be provable.
-- **Work:**
-  - [CANDIDATE] Define P: the formula, its ScoreMe motivation, why it can be evaluated in polynomial time, and why it is meaningful and non-trivial (lines 81–87). Implement `penalty.py` and test it against hand-computed values. Re-run the brute force with P.
-  - [CANDIDATE] Write pseudocode with a justification for every non-obvious line (line 97). Describe 2 rejected alternatives with reasons (line 113).
-  - [CANDIDATE] Write down the scope of the guarantee and the output semantics, including what `assignment` and `violation_reason` contain when `feasible=false`.
-  - [CANDIDATE] Write a one-paragraph sketch of α tied to specific pseudocode lines, and a sketch of the tight instance. If either can't be written, change P or the design now.
-  - [CANDIDATE] Start `journal_notes.md` with dated, first-person notes on each decision and each dead end. This is raw material for T7.
-- **Depends on:** Phase 0.
+**Recommended design:** P = P_base + λ₁·SLA-risk + λ₂·load-imbalance. Each extra term must be:
+
+- non-negative
+- computable in O(n + K·d)
+- not a constant
+
+The two terms:
+
+- **SLA breach risk:** Σᵢ wᵢ · ((σᵢ − loᵢ)/(hiᵢ − loᵢ))².
+  - It penalises tasks placed near the upper edge of their window.
+  - The width is always ≥ 1, so there is no division by zero.
+- **Load imbalance:** Σ_dims Σ_slots (util_{s,k} − mean_k)², where util = load/capacity.
+  - Skip any slot whose capacity in that dimension is 0.
+
+Bound each extra term by a multiple of P_base. Phase D's α proof needs this.
+
+**Deliverables:**
+
+- `solver/penalty.py`
+- tests against hand-computed values on the toy instance
+- a 1-page write-up covering the formula, the ScoreMe motivation (bureau-pull SLA, OCR GPU cluster), polynomial time, monotonicity and non-triviality
+
+### Phase C: Algorithm design, T3 (M, 40 pts, the largest single task)
+
+**Suggested name:** **SLA-Slack DSATUR with Certified Infeasibility and Repair (SSD-R).** Rename it if you prefer.
+
+The algorithm has 4 stages:
+
+1. **Pre-checks that prove infeasibility.** Each check is a sound certificate.
+   - **Empty window.** A task has no slot in its window that fits its resource vector.
+   - **Interval demand.** For every interval [a,b] and every dimension, take the tasks whose window lies inside [a,b]. Their total demand must be ≤ the summed capacity of slots a..b. This is O(K²·n·d). It catches all 3 census infeasibles.
+   - **Clique in a narrow window.** A clique of tasks all confined to [a,b] is larger than b−a+1. Use a greedy clique on each window; this is a cheap check, not an exact one.
+2. **Constructive greedy.** Repeatedly pick the unassigned task with:
+   - the fewest still-feasible slots (DSATUR saturation, adapted to windows and capacity);
+   - ties broken by conflict degree, then by weight.
+
+   Put it in the feasible slot with the smallest marginal P.
+3. **Repair when a task has no feasible slot.** Try a bounded Kempe-style move: move one blocking neighbour or capacity hog to another slot it can use. Allow at most R attempts.
+4. **Local search improvement.** Try single moves and pairwise swaps that keep F1, F2 and F3 and lower P. Stop when no improving move exists or after an iteration cap. This is polynomial per pass.
+
+**Output semantics** (decide now and test them later):
+
+- `feasible=false` with reason `"PROVEN_INFEASIBLE: …"` when a stage-1 certificate fires.
+- `"NOT_FOUND: …"` when the heuristic gave up.
+- In both cases `assignment` holds the partial assignment.
+
+**Two rejected alternatives** for the write-up:
+
+- **Exact ILP or branch-and-bound.** It is exponential, and the spec forbids solvers.
+- **Pure simulated annealing.** It has no feasibility certificate, is not reproducible without seeding, and its ratio cannot be proved.
+
+**Deliverables:**
+
+- numbered pseudocode, with a one-line justification for each non-obvious line
+- a 1-page rationale
+- the two rejected alternatives
+
+**Done when:** you can rewrite the pseudocode from memory and hand-trace the toy instance in 5 minutes or less.
+
+### Phase D: Proofs, T4 (M, 30 pts)
+
+- **Feasibility (10 pts).** An unconditional guarantee would imply P = NP, so the claim must be scoped. Prove these three things:
+  - **Soundness:** every `feasible=true` output satisfies F1, F2 and F3, because each assignment step checks all three.
+  - **Certificate correctness:** each `PROVEN_INFEASIBLE` reason is a valid proof.
+  - **Completeness for tractable sub-classes:** for example, no conflicts with a single dimension and full windows, or the case where every task has a slot where it fits.
+
+  In the write-up, state clearly that this is the best a polynomial-time algorithm can do, unless P = NP.
+- **Approximation ratio (10 pts), for P_base:**
+  - Every feasible σ has σᵢ ≤ hiᵢ.
+  - OPT ≥ Σ wᵢ(loᵢ+1).
+  - Therefore α = max_i (hiᵢ+1)/(loᵢ+1) ≤ K.
+
+  Tie each step to the pseudocode lines. Extend α to the full P using the Phase B bound.
+- **Tight example (10 pts).** Build an instance where the greedy is forced to the top of every window and OPT sits at the bottom. For example, one heavy task fills slot 0, and that blocks every other task.
+  - Put it in `instances/tight.json`.
+  - `tools/ratio.py` prints exactly α.
+
+### Phase E: NP-hardness proof, T1 (M, 20 pts; can run in parallel with C and D)
+
+- **Reduce from Graph 3-Coloring.** All three constraint families must do real work:
+  - **Conflicts:** E maps directly to the conflict edges.
+  - **Resources:** add one GPU unit per vertex task, with slot GPU capacity equal to the size of the largest colour class allowed. Alternatively, add "blocker" tasks that fill a slot completely.
+  - **Windows:** blocker tasks have width-1 windows that pin them to specific slots. Vertex tasks have windows [0,2]. Use K = 3 + the number of blocker slots.
+- **Both directions:** a 3-colouring gives a feasible schedule, and a feasible schedule gives a 3-colouring. Show the construction size is polynomial.
+- For each family, add one sentence saying what breaks if its gadget is removed. This addresses the rubric's main T1 failure mode.
+- **Optional check:** use the brute force on small yes and no graphs, for example C₅ (3-colourable) and K₄ (not).
+- **Deliverable:** 1 to 2 pages in LaTeX or Markdown.
+
+### Phase F: Implementation and tests, T5 (L, 25 pts)
+
+- `solver/algorithm.py`
+  - It matches the pseudocode, with stage and line numbers in comments.
+  - Each docstring explains *why* the design is as it is.
+  - It takes an optional `--trace` flag.
+- **The 4 required tests:**
+  - **All-conflict graph with χ > K:** K_{K+1} with full windows gives `feasible=false`.
+  - **Zero-capacity slot:** the solver never uses it, and the case is still solved when other slots are free.
+  - **Tight SLA windows:** width-1 or width-2 windows, with feasible and infeasible versions.
+  - **Single task.**
+- **Extra tests:**
+  - every `feasible=true` result passes `validate.check`
+  - d=5, and unequal capacities (for the viva questions)
+  - the heuristic equals the brute force on the toy instance, or is within ratio
+  - a run on 20 random seeds never yields an invalid assignment
+- Update `requirements.txt` to list numpy and matplotlib.
 - **Done when:**
-  - `python -m unittest tests.test_penalty` passes.
-  - The penalty section states that the extra term is non-negative and bounded relative to P_base, or explains why no bound is needed.
-  - The α sketch and the tight-instance sketch both cite pseudocode line numbers.
-  - A from-memory rewrite of the pseudocode, diffed against the document, shows no missing steps.
-  - A hand trace on `generate_instance(6, 3, seed=<random>)` takes 5 minutes or less and is checked with `bruteforce.py`.
-- **Biggest risk:** a design that can't be proved or can't be recalled. Both checks above run before the design is frozen.
+  - all tests pass;
+  - a grep for forbidden imports returns nothing;
+  - `--trace` on the toy instance matches your hand trace.
 
-### Phase 2: NP-hardness reduction (T1) (M), in parallel with Phases 1 and 3
+### Phase G: Benchmarks, T6 (S to M, 20 pts)
 
-- **Delivers:** the T1 proof, made of the construction, both directions and the polynomial size (line 78). All three constraint families must do real work (line 73).
-- **Work:**
-  - [CANDIDATE] Pick the source problem and build the construction.
-  - [CANDIDATE] Choose a way to check the construction on small cases. Using the Phase 0 brute force is allowed. The checking method must be the candidate's own, or be logged as idea (f).
-  - [CANDIDATE] Explain the reduction aloud, closed-book.
-- **Depends on:** Phase 0.
-- **Done when:**
-  - The proof names its source problem, shows each family's role in both directions, and is 1–2 pages long.
-  - The chosen check passes on at least one "yes" case and one "no" case, with the commands and output recorded.
-- **Biggest risk:** a reduction that only exercises the conflict constraint (line 220). For each family, write one sentence on what breaks if that family's part of the construction is removed.
+- `tools/bench.py` runs all 9 commands, plus the brute force for n ≤ 12.
+  - It writes `results/results.csv` with: penalty, runtime_ms, feasible, reason, brute-force optimum and ratio.
+  - It also writes two charts: penalty vs n, and runtime vs n.
+- **Brute-force note:** at n=12, K=4 the search space is 4¹² ≈ 1.7e7, which needs pruning. Check the time early.
+- **Write-up:** one paragraph per anomaly. This covers the 3 proven-infeasible rows, any `NOT_FOUND` row, and any ratio > 1. Do not hide failures.
 
-### Phase 3: Implementation, tests, first viva drill, journal draft (T5) (L)
+### Phase H: Journal, report, viva prep, T7 and T8 (M, 50 pts together)
 
-- **Delivers:** `run.py` and a JSON entry point that output exactly the 5 required keys (line 131).
-- **Work:**
-  - [CANDIDATE] Write `algorithm.py` on `feat/solver`, matching the pseudocode line for line. Docstrings explain design decisions (line 135).
-  - [AI-OK] argparse, writing the output JSON, and a `--trace` flag.
-  - [CANDIDATE] Tests:
-    - the 4 required cases (line 136)
-    - hand-written d=5 and unequal-capacity cases
-    - "every `feasible=true` output passes the validator"
-    - the Phase 1 output semantics for `feasible=false`
-  - [MIXED] A robustness run on extra seeds: 5 to 20 of them, depending on the cut list.
-  - [CANDIDATE] Right after the first working build, do a viva drill on the toy instance and on one generator-made 6-node instance. Then write a journal draft from `journal_notes.md`.
-- **Depends on:** the Phase 1 pseudocode being frozen.
-- **Done when:**
-  - `python -m unittest discover -s tests` passes.
-  - `python run.py --n 8 --K 3 --density 0.3 --seed 1` prints JSON with exactly the 5 keys.
-  - `grep -rnE "^\s*(import|from)\s+(ortools|pulp|cplex|gurobi|z3|networkx|pysat|pycosat)" solver/ tools/ tests/` returns nothing.
-  - `requirements.txt` lists only numpy and matplotlib, plus pandas if used.
-  - `--trace` on the toy instance matches the Phase 1 hand trace.
-  - The drill checklist and the journal draft are committed.
-- **Biggest risk:** the code drifting away from the pseudocode (line 139). Compare the trace with the hand trace on the first build.
+- **Journal (2 pages):**
+  - the hardest decision (say which step and which alternative you rejected)
+  - a named failing benchmark and its failure mode
+  - a ScoreMe production system: for example the OCR GPU cluster, with Kafka partitions as conflicts, or the bureau API gateway with its rate limits
+  - what surprised you
+- **Report:** assemble T1 to T8 into one PDF.
+- **Viva drills (do at least 2):**
+  - whiteboard the pseudocode
+  - trace a fresh `generate_instance(6, 3, seed=random)` instance in 5 minutes or less and check it with the brute force
+  - explain 10 random lines picked with `shuf`
+  - answer "a 5th dimension?": d is read from the data, so this costs only O(d) per check
+  - answer "unequal capacities?": capacity is per slot in `Instance`, so the checks are already per slot
+  - name one decision you would make differently in hindsight
 
-### Phase 4: Formal proofs and tight example (T4) (M)
+## Order and critical path
 
-- **Delivers:**
-  - A feasibility guarantee within the declared scope.
-  - α.
-  - A tight instance that reproduces α.
-- **Work:**
-  - [CANDIDATE] Turn the Phase 1 sketches into proofs. Each step cites a pseudocode line and uses the candidate's own P (lines 118–123).
-  - [CANDIDATE] `instances/tight.json`.
-  - [AI-OK] `tools/ratio.py <json>`: runs the solver and the brute force and prints the ratio.
-- **Depends on:** Phase 3.
-- **Done when:**
-  - `python tools/ratio.py instances/tight.json` prints the proven α to within 1e-9.
-  - Each proof step cites a pseudocode line.
-  - The candidate gives the level-1 argument aloud, closed-book.
-- **Biggest risk:** the tight instance doesn't reach α. It was sketched in Phase 1, so run `ratio.py` on it before writing the proof up.
+```
+A ─┬─ B ─ C ─ F ─ D ─┐
+   └─ E (parallel) ──┴─ G ─ H
+```
 
-### Phase 5: Benchmarks, report, final journal, viva rehearsal (T6, T7, T8) (M)
+**Suggested order:** A → B → C → F → G (the benchmarks can start early) → D → E → H.
 
-- **Delivers:** the submission PDF and a rehearsed candidate.
-- **Work:**
-  - [AI-OK] `tools/bench.py`: runs all 9 benchmark commands (lines 145–157) and writes `results.csv` plus 2 PNG charts.
-  - [CANDIDATE] Explain every anomaly and every infeasible or not-found row, in the candidate's own analysis (line 159).
-  - [CANDIDATE] The final 2-page journal, covering all 4 required points (lines 165–172).
-  - [MIXED] Assemble the PDF and finalise the AI log.
-  - [CANDIDATE] Two full drills, scored against the checklist:
-    - whiteboard the pseudocode
-    - trace a fresh 6-node instance in 5 minutes or less
-    - explain 10 random code lines picked with `shuf -n 10`
-    - answer the d=5 and unequal-capacity questions
-    - name one decision you would make differently in hindsight
-- **Depends on:** Phases 2, 3 and 4. The benchmark runs can start as soon as Phase 3 is done.
-- **Done when:**
-  - `results.csv` has 9 rows and both PNGs exist.
-  - Every `feasible=false` row has a violation_reason and its own named paragraph in the report.
-  - The empirical ratio is reported for every small instance that is feasible.
-  - The journal names a specific seed.
-  - Both drills pass every checklist item.
-  - The AI log covers every session.
-- **Biggest risk:** running out of time before the drills, which gate everything. Use the cut list below, and start the drills in Phase 3.
+## Cut list (drop from the top first)
 
-## Cut list
+1. Local search (stage 4): greedy plus repair is enough for feasibility.
+2. The machine check of the reduction.
+3. The exact tight example: up to 10 pts at risk.
+4. The α extension to the full P: give it for P_base only.
 
-Drop items from the top first.
+**Never cut:** all 9 benchmark rows, the 4 required tests, the rejected alternatives, the journal, the viva drills.
 
-1. Robustness seeds, from 20 down to 5. No points at risk.
-2. The machine check of the reduction. Replace it with a hand check on one case. Puts T1 at some risk.
-3. Chart polish and supplementary seeds. No points at risk.
-4. The exact tight example. Up to 10 points at risk.
-5. The α proof, only if the level-1 guarantee is solid. Up to 10 points at risk.
+## Schedule (answered 2026-10-29)
 
-**Never cut:** viva drills, all 9 benchmark runs, the 4 required tests, T2, the rejected alternatives, the journal, the AI log.
-
-## Dependency order
-
-`0 → {1, 2}`; `1 → 3 → 4`; `{2, 3, 4} → 5`
-
-## Explicitly out of scope
-
-- A Java implementation.
-- Any change to the generator (line 188).
-- Forbidden solvers (line 132).
-- CI, packaging or a GUI.
-- Tuning against held-out seeds.
-- Any roadmap content that supplies infeasibility-check designs, anomaly explanations, guarantee options, α, the reduction or the output semantics. Those belong to the candidate.
-
-## Open questions for the user
-
-1. ~~**Q1, slot convention (gate for Phase 0)**~~ **Answered 2026-10-29:** 0-based slots, with (σ+1) in the penalty. See A5.
-2. **Q2:** will the coordinator confirm that AI-assisted planning, including this roadmap, counts as "concept clarification"? Either way, this session is AI log entry #1.
-3. **Q3:** do you accept A4? On [CANDIDATE] files Claude only runs commands and pastes the raw output, with no diagnosis, no fixes and no kit:code-reviewer. This narrows your CLAUDE.md fix and review rules for those files.
-4. **Q4:** what are the deadline and the viva date?
-5. **Q5:** is someone available to run mock vivas with you, or are the drills self-scored on generator instances?
-6. **Q6:** is LaTeX available (Overleaf or MiKTeX), or is Markdown exported to PDF acceptable?
-7. **Q7:** will there be a GitHub remote for draft PRs, or a local repo only?
-
-## Challenged by plan-critic
-
-**Verdict:** PROCEED WITH CHANGES. There was one critique round and one revision.
-
-**Accepted:**
-1. **BLOCKING, roadmap supplied graded design ideas.** The design hints were removed. AI log entry #1 lists all 11 AI-supplied ideas. Whether planning help counts as "concept clarification" is now Q2.
-2. **Penalty, algorithm and α were frozen one after another.** They are now merged into one co-design phase, which gates on sketches of α and the tight instance.
-3. **The forbidden-library grep matched "DSATUR".** It now matches import lines only, and `requirements.txt` is checked too.
-4. **No cut-line.** Added a ranked cut list. The first drill and the journal draft moved up to straight after the first build.
-5. **Phase 0 checks depended on later decisions.** The slot-convention gate was added, the brute force takes a pluggable objective, and the toy instance has a documented −1 shift.
-6. **The AI boundary covered review but not debugging.** Rule A4 was added, pending the user's answer to Q3.
-7. **Mock vivas depended on a peer.** Drill instances now come from the generator, with a 5-minute limit per trace and a written checklist.
-8. **`assignment` was undefined when `feasible=false`.** The candidate decides this in Phase 1 and tests it in Phase 3.
-- **Minor, the empty `main` commit.** The repo now starts directly on `chore/scaffold`.
-
-**Rejected:** none.
+- **Submission: 2026-10-30.** The viva is planned for Monday 2026-11-02.
+- **Report: LaTeX.**
+- **Compressed order for the deadline:** B → C+F together (write the pseudocode and the code side by side) → G → D → E → LaTeX assembly → H journal.
+- **The viva drills move to the weekend**, after submission.
+- **If short on time, cut first:** local search (stage 4) and the machine check of the reduction.

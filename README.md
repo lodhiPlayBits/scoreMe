@@ -25,6 +25,9 @@ sha256  0d97463215c0edbec3163178a7534f74451519ba05f8170dbc102d48c73f8b65  genera
 |---|---|
 | `generator.py` | Provided generator, unmodified |
 | `solver/instance.py` | `Instance` / `Result` data classes and JSON I/O (boilerplate) |
+| `solver/validate.py` | F1/F2/F3 checker and P_base (independent referee) |
+| `solver/bruteforce.py` | Exact branch-and-bound for small instances |
+| `run.py` | CLI: `--n --K --density --seed` or `--input`, `--solver heuristic\|brute` |
 | `instances/` | Hand-written instances (toy) |
 | `tools/census.py` | Raw statistics for the 9 benchmark instances |
 | `tests/` | `unittest` tests |
@@ -37,6 +40,7 @@ python -m unittest discover -s tests
 
 ```bash
 python tools/census.py
+python run.py --n 8 --K 3 --density 0.3 --seed 1 --solver brute
 ```
 
 Python 3.10+ (developed on 3.12), standard library only so far.
