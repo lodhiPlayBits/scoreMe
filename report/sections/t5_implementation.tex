@@ -1,2 +1,117 @@
 \section{Task 5: Implementation}
-% TODO
+
+\textbf{Language and dependencies.} Python 3.10 or later (developed on
+3.12). The solver, the CLI and the tests use \emph{only the standard
+library}; numpy and matplotlib are used only by the chart script. None of
+the forbidden libraries is used. This command returns nothing:
+\begin{verbatim}
+grep -rnE "^\s*(import|from)\s+(ortools|pulp|cplex|gurobi|z3|networkx|pysat|pycosat)" \
+     solver/ tools/ tests/ run.py
+\end{verbatim} All algorithmic code is original. The
+generator (\texttt{generator.py}) is byte-identical to the specification,
+and a unit test checks its SHA-256 hash.
+
+\subsection{Layout}
+\begin{center}\small
+\begin{tabular}{l r l}
+\toprule
+file & lines & role\\
+\midrule
+\texttt{solver/instance.py} & 98 & data classes, JSON I/O, shape checks for any $d$ and per-slot $C$\\
+\texttt{solver/validate.py} & 80 & independent F1/F2/F3 checker and $P_{\text{base}}$\\
+\texttt{solver/penalty.py} & 80 & $P = P_{\text{base}} + R + B$ (\S2)\\
+\texttt{solver/algorithm.py} & 489 & SSD-R (\S3)\\
+\texttt{solver/bruteforce.py} & 101 & exact branch-and-bound, used as ground truth\\
+\texttt{run.py} & 93 & CLI\\
+\texttt{tools/bench.py} & 187 & \S6 tables and figures\\
+\texttt{tools/reduction.py} & 79 & \S1 construction and machine check\\
+\texttt{tools/ratio.py} & 30 & SSD-R vs optimum on one file (\S4)\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Interface}
+\begin{verbatim}
+python run.py --n 50 --K 8 --density 0.25 --seed 10   # generate, then solve
+python run.py --input instances/toy.json --trace      # JSON file, step log on stderr
+python run.py ... --solver brute --out result.json     # exact solver, write file
+\end{verbatim}
+The input is the generator's dictionary saved as JSON. The output has
+exactly the five required keys:
+\texttt{assignment} (task id $\to$ 0-based slot), \texttt{penalty} ($P$,
+float), \texttt{runtime\_ms} (int), \texttt{feasible} (bool) and
+\texttt{violation\_reason}. The reason starts with
+\texttt{PROVEN\_INFEASIBLE:} followed by a certificate, or with
+\texttt{NOT\_FOUND:} followed by the task the heuristic could not place. In
+the \texttt{NOT\_FOUND} case, \texttt{assignment} holds the valid partial
+assignment. If a schedule ever failed re-validation, it would be reported
+as \texttt{feasible=false} with \texttt{INVALID\_OUTPUT}, never silently
+emitted.
+
+\subsection{Pseudocode-to-code map}
+Every label L1--L21 and R1--R3 appears as a comment on the matching line
+of \texttt{solver/algorithm.py}.
+\begin{center}\small
+\begin{tabular}{l l}
+\toprule
+pseudocode & code\\
+\midrule
+Stage 1 (L1--L4) & \texttt{certify\_infeasible}, \texttt{edge\_in}, \texttt{odd\_cycle}, \texttt{largest\_greedy\_clique}\\
+R1--R3 & \texttt{solve}\\
+L5--L11 & \texttt{construct}; forward check in \texttt{takes\_last\_option}\\
+L12--L17 & \texttt{repair}\\
+L18--L20 & \texttt{local\_search}\\
+$F(i)$, $c(i,s)$, $\Delta B$ & \texttt{State.feasible\_slots}, \texttt{State.task\_cost}, \texttt{State.imbalance\_delta}\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Data structures.} \texttt{State} keeps:
+\begin{itemize}
+\item the slot loads;
+\item a counter $\texttt{conf}[i][s]$ of $t_i$'s neighbours placed in slot
+  $s$, so an F1 check is $O(1)$ rather than $O(\deg)$;
+\item running sums $\sum u$ and $\sum u^2$ for each dimension, so
+  $\Delta B$ costs $O(d)$ rather than $O(Kd)$.
+\end{itemize}
+The resource dimension $d$ and the per-slot capacities are read from the
+input. No code assumes $d=4$ or uniform capacities.
+
+\subsection{Tests}
+There are 49 \texttt{unittest} tests (\texttt{python -m unittest discover
+-s tests}, about 1.6 s). The four the specification requires:
+\begin{center}\small
+\begin{tabular}{l l}
+\toprule
+required case & test (\texttt{tests/test\_algorithm.py})\\
+\midrule
+all-conflict graph, $\chi>K$ & $K_{K+1}$ for $K=2,3,5$ $\Rightarrow$ \texttt{PROVEN\_INFEASIBLE}; $K_K$ is solved\\
+zero-capacity slot & slot never used; if it is a task's only slot $\Rightarrow$ \texttt{PROVEN\_INFEASIBLE} (L1)\\
+tight SLA windows & width-1 windows pin the unique schedule; clashing pins are proven infeasible;\\
+ & width-2 windows with capacity for one task per slot $\Rightarrow$ the heavier task goes first\\
+single task & placed at $l_i$ with $P_{\text{base}}=w_i(l_i+1)$\\
+\bottomrule
+\end{tabular}
+\end{center}
+Other tests:
+\begin{itemize}
+\item a 5th resource dimension, and unequal slot capacities;
+\item soundness against the exact solver on 120 random instances: valid
+  output, no false certificate, never better than OPT;
+\item \texttt{NOT\_FOUND} partial assignments are valid;
+\item the odd-cycle and clique certificates are genuine;
+\item the tight example gives a ratio of exactly $K$;
+\item the completeness class of Theorem~\ref{thm:complete} (200 random
+  instances);
+\item the reduction of \S1;
+\item hand-computed values for $P$ and its bounds;
+\item the branch-and-bound solver against plain enumeration;
+\item the generator hash, and the CLI's five output keys.
+\end{itemize}
+
+\subsection{Docstrings}
+Every non-trivial function has a docstring that explains \emph{why} it is
+designed as it is. Examples: why \texttt{odd\_cycle} is exact for width 2;
+why \texttt{repair} goes only one level deep; why the forward check exists,
+including the instance that motivated it; why zero-capacity cells are left
+out of $B$; and why the branch-and-bound lower bound is valid for $P$.

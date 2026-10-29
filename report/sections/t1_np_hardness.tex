@@ -1,2 +1,118 @@
 \section{Task 1: NP-Hardness}
-% TODO
+
+We reduce from \textsc{Graph 3-Colouring}: given $G=(V,E)$, is there a
+$\chi:V\to\{0,1,2\}$ with $\chi(u)\neq\chi(v)$ for every $\{u,v\}\in E$?
+It is NP-complete (Karp, 1972). Our target is the decision problem
+\textsc{Sched-Feas}: does an instance $(G',r,C,w,\tau)$ have an assignment
+satisfying F1, F2 and F3? The construction uses only the generator's own
+form: $d=4$, uniform capacity $C=(32,128,8,6)$ in every slot, and SLA
+windows with $l<u$. So hardness holds for the generator's own instance class, not just for a
+generalisation of it.
+
+\subsection{Construction $f(G)$}
+Let $m=|V|$. Output the following instance:
+\begin{itemize}
+\item $K=5$ slots, each with capacity $C$.
+\item One \emph{vertex task} $t_v$ for each $v\in V$, with $r(t_v)=C/(m+1)$
+  (componentwise) and window $\tau(t_v)=[0,3]$.
+\item One \emph{blocker task} $b$ with $r(b)=C$ and window $\tau(b)=[0,3]$.
+\item Conflict graph $E'=\{(t_u,t_v):\{u,v\}\in E\}$. The blocker has no
+  conflicts.
+\item Weights $w\equiv 1$. Any weights work, because feasibility does not
+  depend on them.
+\end{itemize}
+The output has $m+1$ tasks, $|E|$ conflict edges and constant $K$ and $d$,
+so $f$ runs in $O(m+|E|)$ time.
+
+\textbf{The role of each family.} The three gadgets together reduce the
+available colours from 5 slots to exactly 3:
+\begin{itemize}
+\item \emph{SLA windows (F3)} restrict every task to slots $0..3$. Slot 4
+  exists but no task may use it.
+\item \emph{Capacity (F2)}: $b$ fills its slot completely, in every
+  dimension. Every vertex task has strictly positive demand, so no vertex
+  task fits next to $b$. That removes one more slot.
+\item \emph{Conflicts (F1)} encode $E$ on the 3 slots that remain.
+\end{itemize}
+
+\subsection{Correctness}
+\begin{theorem}
+$G$ is 3-colourable $\iff$ $f(G)$ has an assignment satisfying F1, F2 and F3.
+\end{theorem}
+\begin{proof}
+($\Rightarrow$, a colouring gives a schedule.) Let $\chi$ be a proper
+3-colouring. Set $\sigma(t_v)=\chi(v)\in\{0,1,2\}$ and $\sigma(b)=3$.
+\textbf{F3:} every slot used lies in $[0,3]$.
+\textbf{F1:} a conflict edge $(t_u,t_v)$ comes from $\{u,v\}\in E$, so
+$\sigma(t_u)=\chi(u)\neq\chi(v)=\sigma(t_v)$.
+\textbf{F2:} slot 3 holds only $b$, with load exactly $C$. Each slot
+$s\le2$ holds at most $m$ vertex tasks, with load at most
+$\frac{m}{m+1}C<C$. Slot 4 is empty.
+
+($\Leftarrow$, a schedule gives a colouring.) Let $\sigma$ satisfy F1, F2
+and F3, and let $s_b=\sigma(b)$. By F3, $s_b\in\{0,1,2,3\}$, and every
+vertex task lies in $\{0,1,2,3\}$. By F2, no vertex task shares $s_b$: in
+any dimension $k$ that load would be $C_k+C_k/(m+1)>C_k$. So every vertex
+task uses one of the three slots $F=\{0,1,2,3\}\setminus\{s_b\}$. Let
+$\pi:F\to\{0,1,2\}$ be the order-preserving bijection, and set
+$\chi(v)=\pi(\sigma(t_v))$. For $\{u,v\}\in E$, F1 gives
+$\sigma(t_u)\ne\sigma(t_v)$, so $\chi(u)\neq\chi(v)$. Hence $\chi$ is a
+proper 3-colouring.
+\end{proof}
+
+\begin{theorem}
+\textsc{Sched-Feas} is NP-complete. Minimising \emph{any} $P$ subject to
+F1--F3, including ours, is NP-hard.
+\end{theorem}
+\begin{proof}
+It is in NP: a certificate $\sigma$ is checked in $O(n d+|E|+Kd)$ time
+(this is exactly \texttt{solver/validate.py}). Hardness follows from the
+theorem above and the polynomial construction. An optimiser must either
+output a feasible $\sigma$ or correctly report that none exists, so it also
+decides \textsc{Sched-Feas}.
+\end{proof}
+
+\textbf{Consequence used in \S4.} Unless P = NP, no polynomial algorithm,
+SSD-R included, can find a feasible assignment whenever one exists. For the
+same reason, no polynomial algorithm can have a finite approximation ratio
+on all instances. Task~4's guarantees are therefore stated for the
+instances on which SSD-R returns a schedule, and for explicit tractable
+sub-classes.
+
+\subsection{Every family is necessary}
+If any one gadget is removed, the equivalence fails. $K_4$, which is not
+3-colourable, then maps to a \emph{feasible} instance:
+\begin{center}\small
+\begin{tabular}{l l}
+\toprule
+gadget removed & what breaks\\
+\midrule
+F1 (no conflicts) & every instance is feasible: put all vertex tasks in one free slot\\
+F2 ($r(b)=0$) & $b$ shares a slot, so the vertex tasks get 4 colours $\{0..3\}$\\
+F3 (windows $[0,4]$) & $b$ moves to slot 4, so the vertex tasks get 4 colours $\{0..3\}$\\
+\bottomrule
+\end{tabular}
+\end{center}
+So the reduction is a genuine compound of colouring, packing and temporal
+constraints, not colouring in disguise. In particular, F2 and F3 each
+remove exactly one colour.
+
+\subsection{Machine check}
+\texttt{tools/reduction.py} builds $f(G)$ and solves it exactly with
+\texttt{solver/bruteforce.py}. It compares the result with an independent
+$3^m$ colouring check, and extracts $\chi$ from $\sigma$ as in the
+($\Leftarrow$) proof:
+\begin{center}\small
+\begin{tabular}{l c c l}
+\toprule
+$G$ & 3-colourable & $f(G)$ feasible & extracted $\chi$ proper\\
+\midrule
+$C_5$ & yes & yes & yes\\
+$K_4$ & no & no & --\\
+$W_5$ (wheel) & no & no & --\\
+Petersen & yes & yes & yes\\
+\bottomrule
+\end{tabular}
+\end{center}
+For each of the three ablations, $K_4$ becomes feasible, which confirms the
+table above. Both checks are unit tests (\texttt{tests/test\_reduction.py}).

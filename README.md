@@ -29,8 +29,10 @@ sha256  0d97463215c0edbec3163178a7534f74451519ba05f8170dbc102d48c73f8b65  genera
 | `solver/bruteforce.py` | Exact branch-and-bound for small instances |
 | `solver/penalty.py` | Extended penalty P = P_base + SLA risk + load imbalance (T2) |
 | `solver/algorithm.py` | SSD-R heuristic (T3/T5) |
+| `tools/reduction.py` | T1 reduction (3-Colouring -> scheduling), machine-checked |
+| `tools/bench.py` | T6 benchmark suite: CSVs and charts in `report/` |
 | `tools/ratio.py` | SSD-R vs exact optimum on one instance |
-| `report/` | LaTeX report (`main.tex` + `sections/`) |
+| `report/` | LaTeX report: `main.tex` + `sections/`; compiled `main.pdf` is the submission |
 | `run.py` | CLI: `--n --K --density --seed` or `--input`, `--solver heuristic\|brute` |
 | `instances/` | Hand-written instances (toy) |
 | `tools/census.py` | Raw statistics for the 9 benchmark instances |
@@ -55,4 +57,10 @@ Python 3.10+ (developed on 3.12). The solver needs only the standard library. To
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python tools/bench.py      # writes report/data/*.csv and report/figures/*.png
+```
+
+## Report
+
+```bash
+cd report && latexmk -pdf main.tex     # needs texlive-latex-extra + texlive-science
 ```

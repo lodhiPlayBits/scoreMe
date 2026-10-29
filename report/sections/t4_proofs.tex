@@ -1,2 +1,202 @@
-\section{Task 4: Approximation and Feasibility Bounds}
-% TODO
+\section{Task 4: Guarantees, Approximation Ratio and Tight Example}
+
+Line labels L$x$/R$x$ refer to the pseudocode in \S3 and to the matching
+comments in \texttt{solver/algorithm.py}.
+
+\subsection{Level 1 --- Feasibility guarantee}
+By \S1, deciding feasibility is NP-complete. A polynomial-time algorithm
+that \emph{always} finds a feasible assignment whenever one exists would
+therefore show P = NP. We do not claim that. We prove the strongest
+statements a polynomial algorithm can make: (a)~SSD-R never outputs an
+invalid schedule; (b)~SSD-R never wrongly reports infeasibility; and
+(c)~SSD-R is complete on an explicit, practically relevant class.
+
+\begin{theorem}[Soundness]\label{thm:sound}
+If SSD-R returns with an empty reason, then $\sigma$ satisfies F1, F2 and F3.
+\end{theorem}
+\begin{proof}
+We show the invariant \emph{(I): the partial assignment held in the state
+satisfies F1, F2 and F3 restricted to placed tasks}. It holds initially,
+since nothing is placed (L5). We check every line that writes $\sigma$.
+\begin{itemize}
+\item \textbf{L10} places $i^\ast$ in some $s\in F(i^\ast)$, computed at L7
+  against the \emph{current} state. Membership in $F(i^\ast)$ means three
+  things: $s\in[l_{i^\ast},u_{i^\ast}]$, which is F3; the counter
+  $\texttt{conf}[i^\ast][s]=0$, so no placed neighbour is in $s$, which is
+  F1; and $\text{load}(s)+r_{i^\ast}\le C(s)$, which is F2. The forward
+  check only shrinks the candidate set to a subset of $F(i^\ast)$.
+\item \textbf{L15} moves an evicted task $j$ only to $t\in F(j)$ (same
+  argument). \textbf{L16} places $i$ in $s$ only after re-checking
+  $s\in F(i)$ (\texttt{can\_place}). If any eviction fails, every move is
+  undone, which restores the previous state, and that state satisfies (I).
+\item \textbf{L19} applies a move only if \texttt{can\_place}$(i,t)$ holds.
+\item \textbf{L20} applies a swap only if $i$ can go to $\sigma(j)$ with $j$
+  ignored, and $j$ can go to $\sigma(i)$ with $i$ ignored. Ignoring the
+  partner is exact: after the swap the partner is no longer in that slot,
+  so its load and its conflict no longer count there.
+\item \textbf{R2} starts each pass from an empty state.
+\end{itemize}
+An empty reason is returned only after L6 exits, that is, when every task
+is placed. By (I), $\sigma$ is then feasible. As a second, independent
+line of defence, \texttt{run.py} re-validates every reported schedule with
+\texttt{solver/validate.py}. It found no violation on any feasible run in
+\S6: 823 small random, 3 graded and 19 supplementary.
+\end{proof}
+
+\begin{lemma}[Certificates]\label{lem:cert}
+If Stage 1 returns \textsc{proven\_infeasible}, no feasible assignment exists.
+\end{lemma}
+\begin{proof}
+Suppose a feasible $\sigma$ exists, and take each check in turn.
+\begin{itemize}
+\item \textbf{L1:} $\sigma(t_i)$ is a slot in the window of $t_i$ with
+  $r_i\le C(\sigma(t_i))$ (F3 and F2). So the L1 condition fails.
+\item \textbf{L3:} for an interval $[a,b]$, every $i\in S$ has
+  $\sigma(t_i)\in[a,b]$ by F3. Summing F2 over $s=a..b$ gives
+  $\sum_{i\in S}r_{ik}\le\sum_{s\in[a,b]}\text{load}_k(s)\le\sum_{s=a}^b C_k(s)$.
+\item \textbf{L4:} $\sigma$ restricted to $S$ is a proper colouring of
+  $G[S]$ with colours $[a,b]$ (F1 and F3). Width 1 would then force $G[S]$
+  to have no edge. Width 2 forces it to be bipartite, and the BFS returns an
+  odd cycle only if it is not. For width $w\ge3$, a clique $Q\subseteq S$
+  needs $|Q|$ distinct colours, so $|Q|\le w$.
+\end{itemize}
+Each certificate we report (task, interval, cycle or clique) is checked in
+\texttt{tests/test\_algorithm.py}. On 316 certified small instances the
+exact solver agreed every time.
+\end{proof}
+
+\begin{theorem}[Completeness on a class]\label{thm:complete}
+Suppose that (i) every task has fewer conflict neighbours than its window
+has slots, $\deg(t_i) < u_i-l_i+1$, and (ii) capacity never binds:
+$\sum_{\text{all }i} r_i \le C(s)$ for every slot $s$. Then the first
+construction pass (R2 with $\Pi=[\,]$) places every task without calling
+\textsc{Repair}, and SSD-R returns a feasible $\sigma$.
+\end{theorem}
+\begin{proof}
+At L7, a slot $s$ of $t_i$'s window can be missing from $F(i)$ for only two
+reasons: a neighbour already sits in $s$, or $s$ lacks capacity. By (ii),
+capacity never fails. Neighbours occupy at most $\deg(t_i)$ distinct slots.
+So $|F(i)|\ge(u_i-l_i+1)-\deg(t_i)\ge1$, the test at L9 never fires, and
+L6 terminates with all $n$ tasks placed. Theorem~\ref{thm:sound} gives
+feasibility.
+\end{proof}
+This class contains the sparse, wide-window regime of the supplementary
+benchmarks, and a randomised test (200 instances) asserts that no restart
+or repair is ever triggered on it. Outside the class, SSD-R can fail. On
+1200 small random instances it missed 1 of 824 feasible ones (\S6), and
+that miss is reported as \textsc{not\_found}, never as infeasible.
+
+\subsection{Level 2 --- Approximation ratio}
+Theorem~\ref{thm:sound} only uses window-respecting placements. Combined
+with Lemma~\ref{lem:sandwich} (\S2), this gives a ratio. For an instance
+$I$, define
+\[
+\rho(I)=\max_{i:\,w_i>0}\frac{u_i+1}{l_i+1}\ \le K,
+\qquad
+\alpha_P(I)=\max_{i:\,w_i>0}\frac{u_i+1+\lambda_R+\lambda_B/4}{l_i+1}\ \le K+1.25 .
+\]
+
+\begin{theorem}[Ratio]\label{thm:ratio}
+Whenever SSD-R returns a feasible $\sigma$,
+\[
+P_{\text{base}}(\sigma)\le\rho(I)\cdot P_{\text{base}}(\sigma^\ast_{\text{base}})
+\qquad\text{and}\qquad
+P(\sigma)\le\alpha_P(I)\cdot P(\sigma^\ast),
+\]
+where $\sigma^\ast_{\text{base}}$ and $\sigma^\ast$ are optimal for
+$P_{\text{base}}$ and $P$ respectively.
+\end{theorem}
+\begin{proof}
+\emph{Upper bound on SSD-R.} Every placement line (L10, L15/L16, L19, L20)
+keeps $\sigma(t_i)\le u_i$ (Theorem~\ref{thm:sound}, F3). Hence
+$P_{\text{base}}(\sigma)\le\sum_i w_i(u_i+1)$.
+
+\emph{Lower bound on OPT.} Every feasible assignment has
+$\sigma^\ast(t_i)\ge l_i$, so $P_{\text{base}}(\sigma^\ast_{\text{base}})\ge\sum_i w_i(l_i+1)>0$.
+
+\emph{Ratio of sums.} Terms with $w_i=0$ vanish on both sides. For the
+rest, $\frac{\sum_i a_i}{\sum_i b_i}\le\max_i\frac{a_i}{b_i}$ when all
+$b_i>0$ (the mediant inequality). This gives $\rho(I)$, and $\rho(I)\le K$
+because $u_i\le K-1$ and $l_i\ge0$.
+
+\emph{Full $P$.} By the proof of Lemma~\ref{lem:sandwich},
+$R(\sigma)\le W$ and $B(\sigma)\le W/4$ for any feasible $\sigma$. So
+$P(\sigma)\le\sum_iw_i\,(u_i+1+\lambda_R+\lambda_B/4)$, and
+$P(\sigma^\ast)\ge P_{\text{base}}(\sigma^\ast)\ge\sum_iw_i(l_i+1)$. The
+mediant inequality again gives $\alpha_P(I)$.
+\end{proof}
+
+\textbf{What the bound does and does not use.} The proof relies only on
+the window restriction that every placement line enforces. It gives the
+greedy (L8, L10) and the local search (L19, L20) no credit. The tight
+example below shows that this is not slack in the analysis: those stages
+\emph{cannot} improve the worst case. Empirically the picture is much
+better. The mean ratio is 1.054 and the maximum observed is 1.64 (\S6).
+On the three small benchmarks, $\rho=K$: some task always has the window
+$[0,K-1]$. The intermediate quantity from the proof,
+$\sum w_i(u_i+1)/\sum w_i(l_i+1)$, is an instance-specific bound that is
+already tighter: 1.97, 1.94 and 1.90. The measured ratios, 1.14, 1.00 and
+1.00, are well below it.
+
+\subsection{Level 3 --- Tight adversarial example}
+\textbf{Family $I_K$} ($K\ge2$), in \texttt{instances/tight\_K\{2,4\}.json}.
+Tasks $H$ (weight 1), $Y$ (weight 0) and $Z_0,\dots,Z_{K-2}$ (weight 0).
+All resources are $0$, capacities are uniform, and every window is
+$[0,K-1]$. Conflicts: the $Z_j$ form a clique, and every $Z_j$ conflicts
+with $H$ and with $Y$. There is no edge between $H$ and $Y$.
+
+\emph{Optimum:} $H\to0$, $Y\to0$, $Z_j\to j{+}1$. Then
+$P_{\text{base}}(\sigma^\ast)=1$ and $\rho(I_K)=\frac{K}{1}=K$.
+
+\emph{Trace of SSD-R}, citing pseudocode lines:
+\begin{enumerate}
+\item \textbf{Stage 1 passes.} Demand is 0 (L3). The only interval
+  containing any task is $[0,K-1]$, of width $K$. The largest cliques,
+  $\{Z_j\}\cup\{H\}$ and $\{Z_j\}\cup\{Y\}$, have size $K$, which is not
+  more than $K$ (L4).
+\item \textbf{L8 picks the $Z_j$ first.} Initially every $|F|=K$. The
+  degrees are $\deg Z_j=K$ (that is, $K{-}2$ other $Z$'s plus $H$ and $Y$),
+  while $\deg H=\deg Y=K-1$. After $Z_0,\dots,Z_{j-1}$ are placed, $Z_j$,
+  $H$ and $Y$ all have $|F|=K-j$. The degree tie-break still selects
+  $Z_j$.
+\item \textbf{L10 puts $Z_j$ in slot $j$.} All the $Z$ tasks have weight 0
+  and zero resources, so every candidate slot costs 0. The tie rule picks
+  the lowest free slot. The forward check never fires, because $H$ and $Y$
+  keep at least two options until $Z_{K-2}$ is placed.
+\item \textbf{Then $H\to K{-}1$ and $Y\to K{-}1$.} Slots $0..K{-}2$ hold
+  their neighbours, and $H$ and $Y$ do not conflict.
+\item \textbf{L19 finds no improving move.} $H$ cannot move to any
+  $s\le K-2$, because $Z_s$ is there. Moving $Y$ or a $Z_j$ changes $P$ by
+  0, so the move is not accepted.
+\item \textbf{L20 finds no improving swap.} Swapping $H$ with $Z_j$ sends
+  $Z_j$ to slot $K{-}1$, where it conflicts with $Y$. Swapping $Y$ with
+  $Z_j$ sends $Z_j$ next to $H$. Swaps among the $Z$'s, or between $H$ and
+  $Y$, have $\Delta P=0$.
+\end{enumerate}
+So $P_{\text{base}}(\sigma)=1\cdot K=K=\rho(I_K)\cdot P_{\text{base}}(\sigma^\ast)$:
+\textbf{the bound is attained exactly}, for every $K$.
+\texttt{tools/ratio.py instances/tight\_K4.json} prints
+\texttt{ratio 4.000000000}, and \texttt{tests/test\_algorithm.py} asserts
+the ratio is exactly $K$ for $K=2$ and $K=4$.
+
+For the full $P$, the same instance gives
+$P(\sigma)=K+\lambda_R\cdot1=K+1$ against $P(\sigma^\ast)=1$. The bound is
+$\alpha_P=K+1.25$. The remaining gap of $\lambda_B/4$ exists because,
+with zero resources, the imbalance term is 0 in both solutions.
+
+\textbf{Positive weights.} The generator draws $w\in[1,10]$. If the
+zero-weight tasks get weight $\varepsilon>0$, the ratio becomes
+$\frac{K+\varepsilon(\cdot)}{1+\varepsilon(\cdot)}\to K$ as
+$\varepsilon\to0$. So $\rho$ is also the best constant for strictly
+positive weights, approached as closely as desired. The specification's
+$w:V\to\mathbb{R}$ admits the zero-weight instance, where the bound is
+attained exactly.
+
+\textbf{Why only a different approach helps.} To reach $\sigma^\ast$, the
+algorithm must move $H$, $Y$ and some $Z_j$ \emph{at the same time}. That
+is a 3-task Kempe-chain interchange of slots $j$ and $K{-}1$, which lies
+outside the move-or-swap neighbourhood. Escaping needs a larger
+neighbourhood, such as Kempe chains or an exact search on small
+components. That is a different algorithm, and it would also need a
+different tight example. The same 3-task trap
+explains the 1.141 ratio on benchmark seed 1 (\S6, A2).

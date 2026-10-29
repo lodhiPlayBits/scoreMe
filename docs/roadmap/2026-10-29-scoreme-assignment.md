@@ -30,9 +30,9 @@ A submission scoring 100/200 or more (target 150+), made of:
 | Validator, brute force, `run.py` (Phase A) | Done 2026-10-29: 22 tests pass |
 | Penalty P (T2): `solver/penalty.py`, `report/sections/t2_penalty.tex` (Phase B) | Done 2026-10-29: 30 tests pass |
 | Algorithm SSD-R (T3) + implementation (T5): `solver/algorithm.py`, `report/sections/t3_algorithm.tex`, tight instances (Phases C+F) | Done 2026-10-29: 46 tests pass |
-| Proofs (T1, T4) | **Not started** |
+| Proofs T1 (`tools/reduction.py`, machine-checked) and T4 (Phases D+E) | Done 2026-10-29 |
 | Benchmarks T6: `tools/bench.py`, `report/data/`, `report/figures/`, `report/sections/t6_benchmarks.tex` (Phase G) | Done 2026-10-29 |
-| Journal (T7) | **Not started** |
+| T5/T7/T8 sections, compiled `report/main.pdf` (17 pages) | Done 2026-10-29. Remaining: personalise T7, viva drills |
 
 Everything is on `main` as one commit. v1 planned a `chore/scaffold` branch, which was not created.
 

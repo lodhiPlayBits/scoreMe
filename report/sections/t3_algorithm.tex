@@ -27,7 +27,7 @@ separable part of $P$, and $\Delta B$ is the change in the imbalance term.
 \State L4:\ \quad \textbf{if} $G[S]$ is visibly not $(b{-}a{+}1)$-colourable \textbf{return} INFEASIBLE
 \Statex \hspace{2.6em}\small(width 1: any edge; width 2: odd cycle by BFS; width $\ge3$: greedy clique $>b{-}a{+}1$)\normalsize
 \State \textbf{Stage 2 --- construct, with restarts}
-\State R1:\ $\Pi\gets[\,]$ \Comment{promoted tasks}; \textbf{repeat} at most $n$ times:
+\State R1:\ $\Pi\gets[\,]$; \textbf{repeat} at most $n$ times: \Comment{$\Pi$: promoted tasks}
 \State R2:\ \quad run L5--L11 with promotion list $\Pi$; \textbf{if} it succeeds \textbf{goto} L18
 \State R3:\ \quad move the failed task to the front of $\Pi$
 \State \quad \textbf{return} NOT\_FOUND (best partial $\sigma$)
@@ -42,7 +42,7 @@ separable part of $P$, and $\Delta B$ is the change in the imbalance term.
 \State \textbf{Stage 3 --- }\textsc{Repair}$(i)$
 \State L12:\ \textbf{for} $s=l_i,\dots,u_i$:
 \State L13:\ \quad $B\gets N(i)\cap\sigma^{-1}(s)$ \Comment{conflict blockers}
-\State L14:\ \quad \textbf{while} $r_i$ does not fit in $s$ without $B$: add the largest task of $s$ in the overflowing dim to $B$
+\State L14:\ \quad \textbf{while} $r_i$ does not fit in $s$ without $B$: add to $B$ the largest task of $s$ \Comment{overflowing dim}
 \State L15:\ \quad tentatively move each $j\in B$ to its cheapest feasible slot $\neq s$
 \State L16:\ \quad \textbf{if} all moved and $s\in F(i)$ \textbf{return} $\{s\}$ \textbf{else} roll back
 \State L17:\ \textbf{return} $\emptyset$

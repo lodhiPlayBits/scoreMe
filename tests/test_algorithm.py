@@ -177,3 +177,33 @@ class CliTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CompletenessClassTest(unittest.TestCase):
+    """Task 4, Theorem 4: deg(i) < window width and non-binding capacity => success, no restart."""
+
+    def test_low_degree_non_binding_instances_always_solved_first_pass(self):
+        import random
+        rng = random.Random(7)
+        for _ in range(200):
+            K = rng.randint(3, 8)
+            n = rng.randint(5, 30)
+            windows = []
+            for _ in range(n):
+                lo = rng.randint(0, K - 2)
+                windows.append((lo, rng.randint(lo + 1, K - 1)))
+            edges = []
+            deg = [0] * n
+            for i in range(n):
+                for j in range(i + 1, n):
+                    w = min(windows[i][1] - windows[i][0], windows[j][1] - windows[j][0]) + 1
+                    if deg[i] + 1 < w and deg[j] + 1 < w and rng.random() < 0.4:
+                        edges.append((i, j))
+                        deg[i] += 1
+                        deg[j] += 1
+            res = [[CAP[k] / n * rng.random() for k in range(4)] for _ in range(n)]
+            inst = make(n, K, conflicts=edges, resources=res, windows=windows)
+            trace = []
+            sigma, reason = solve(inst, trace)
+            self.assertEqual(reason, "")
+            self.assertFalse(any("failed" in t or "repair" in t for t in trace))
