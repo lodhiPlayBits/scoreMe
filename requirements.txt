@@ -1,2 +1,4 @@
-# Phase 0 uses only the standard library.
-# numpy and matplotlib (permitted by assignment line 133) get added when first used.
+# Solver, tests and run.py use only the standard library.
+# tools/bench.py (charts) needs:
+numpy
+matplotlib

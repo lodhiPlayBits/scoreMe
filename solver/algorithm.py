@@ -396,6 +396,28 @@ def local_search(st: State, trace) -> int:
 # Driver
 # ======================================================================
 
+def takes_last_option(st: State, i, s, unplaced, options) -> bool:
+    """Forward check for L10: would putting i in s kill another task's only slot?
+
+    That happens when an unplaced task j has s as its last feasible slot,
+    and j either conflicts with i or no longer fits in s once i is there.
+    Without this check the cheapest-slot rule walks into dead ends that the
+    restarts cannot escape. On generator instance (100, 10, 0.05, seed 1),
+    four tasks with nested 2-3 slot windows kept squeezing each other out in
+    a cycle, pass after pass. Cost: O(n * d) per candidate slot.
+    """
+    inst = st.inst
+    for j in unplaced:
+        if j == i or options[j] != [s]:
+            continue
+        if j in st.adj[i]:
+            return True
+        if any(st.load[s][k] + inst.resources[i][k] + inst.resources[j][k]
+               > inst.capacities[s][k] + EPS for k in range(inst.d)):
+            return True
+    return False
+
+
 def construct(inst: Instance, promoted: list, trace):
     """Stage 2 (+3): one saturation-greedy pass. Returns (state, failed_task).
 
@@ -419,8 +441,10 @@ def construct(inst: Instance, promoted: list, trace):
             if s is None:
                 return st, i
             slots = [s]
-        # L10: cheapest slot by marginal P; ties go to the lower slot
-        s = min(slots, key=lambda s: (st.task_cost(i, s) + st.imbalance_delta([(s, i, +1)]), s))
+        # L10: forward check, then the cheapest slot by marginal P (ties go
+        # to the lower slot)
+        safe = [s for s in slots if not takes_last_option(st, i, s, unplaced, options)] or slots
+        s = min(safe, key=lambda s: (st.task_cost(i, s) + st.imbalance_delta([(s, i, +1)]), s))
         st.place(i, s)
         unplaced.discard(i)                                           # L11
         if trace is not None:

@@ -31,7 +31,8 @@ A submission scoring 100/200 or more (target 150+), made of:
 | Penalty P (T2): `solver/penalty.py`, `report/sections/t2_penalty.tex` (Phase B) | Done 2026-10-29: 30 tests pass |
 | Algorithm SSD-R (T3) + implementation (T5): `solver/algorithm.py`, `report/sections/t3_algorithm.tex`, tight instances (Phases C+F) | Done 2026-10-29: 46 tests pass |
 | Proofs (T1, T4) | **Not started** |
-| Benchmarks, report, journal (T6, T7) | **Not started** |
+| Benchmarks T6: `tools/bench.py`, `report/data/`, `report/figures/`, `report/sections/t6_benchmarks.tex` (Phase G) | Done 2026-10-29 |
+| Journal (T7) | **Not started** |
 
 Everything is on `main` as one commit. v1 planned a `chore/scaffold` branch, which was not created.
 

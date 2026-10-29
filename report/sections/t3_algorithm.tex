@@ -36,7 +36,8 @@ separable part of $P$, and $\Delta B$ is the change in the imbalance term.
 \State L7:\ \qquad compute $F(i)$ for all $i\in U$
 \State L8:\ \qquad $i^\ast\gets\arg\min_{i\in U}\big(\text{rank}_\Pi(i),\ |F(i)|,\ -\deg(i),\ -w_i,\ i\big)$
 \State L9:\ \qquad \textbf{if} $F(i^\ast)=\emptyset$: $F(i^\ast)\gets\textsc{Repair}(i^\ast)$; \textbf{if} still $\emptyset$ \textbf{fail with} $i^\ast$
-\State L10:\ \qquad $\sigma(i^\ast)\gets\arg\min_{s\in F(i^\ast)}\big(c(i^\ast,s)+\lambda_B\Delta B,\ s\big)$
+\State L10:\ \qquad $S\gets\{s\in F(i^\ast): \nexists j\in U{\setminus}\{i^\ast\}$ with $F(j)=\{s\}$ that $i^\ast$ would block$\}$, or $F(i^\ast)$ if empty
+\Statex \hspace{3.6em} $\sigma(i^\ast)\gets\arg\min_{s\in S}\big(c(i^\ast,s)+\lambda_B\Delta B,\ s\big)$ \Comment{forward check, then cheapest}
 \State L11:\ \qquad $U\gets U\setminus\{i^\ast\}$
 \State \textbf{Stage 3 --- }\textsc{Repair}$(i)$
 \State L12:\ \textbf{for} $s=l_i,\dots,u_i$:
@@ -73,7 +74,13 @@ separable part of $P$, and $\Delta B$ is the change in the imbalance term.
   Ties go to higher degree, because that task constrains the most others,
   then to heavier weight, because it should get the earlier slot. Index
   breaks the final tie, so runs are deterministic.
-\item[L10] The task takes the slot that adds the least to $P$. The tie
+\item[L10] First a forward check: a slot is skipped if it is the
+  \emph{last} feasible slot of another unplaced task $j$, and $i^\ast$
+  would block it there (a conflict with $j$, or no capacity left for both).
+  Among the remaining slots, the task takes the one that adds the least to
+  $P$. Without the forward check, the cheapest-slot rule repeatedly walked
+  into dead ends. On $(100,10,0.05)$ seed 1, four tasks with nested windows
+  evicted each other in a cycle through all $n$ restarts (\S6). The tie
   rule ``lower slot'' keeps zero-weight tasks deterministic (used in the
   tight example, \S4).
 \item[L14] If capacity, not a conflict, is what blocks $i$, the largest

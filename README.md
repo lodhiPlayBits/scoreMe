@@ -50,4 +50,9 @@ python run.py --n 8 --K 3 --density 0.3 --seed 1 --solver brute
 python tools/ratio.py instances/tight_K4.json
 ```
 
-Python 3.10+ (developed on 3.12), standard library only so far.
+Python 3.10+ (developed on 3.12). The solver needs only the standard library. To run the benchmarks and draw the charts:
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python tools/bench.py      # writes report/data/*.csv and report/figures/*.png
+```
