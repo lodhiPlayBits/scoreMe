@@ -1,0 +1,2 @@
+# Keep the provided generator's bytes stable so its sha256 check holds on any checkout.
+generator.py -text
