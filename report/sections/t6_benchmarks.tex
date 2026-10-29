@@ -1,0 +1,188 @@
+\section{Task 6: Empirical Analysis and Benchmarking}
+
+\textbf{Setup.} Python 3.12 on one core of an ARM64 Linux VM. Every row runs
+through \texttt{run.solve}, the same code path as \texttt{python run.py
+...}. \texttt{tools/bench.py} regenerates every number and figure in this
+section; its raw output is in \texttt{report/data/}. Runtime is the median
+of 3 runs. ``OPT'' is the exact optimum of $P$ from the branch-and-bound
+solver (\texttt{solver/bruteforce.py}). That solver is cross-checked against
+plain $K^n$ enumeration in \texttt{tests/test\_validate.py} and
+\texttt{tests/test\_penalty.py}.
+
+\subsection{The nine graded benchmarks}
+\begin{table}[h]
+\centering\small
+\begin{tabular}{rrrrr l rrrr}
+\toprule
+$n$ & $K$ & dens. & seed & $|E|$ & status & $P(\sigma)$ & ms & OPT & ratio\\
+\midrule
+8   & 3  & 0.30 & 1  & 11    & feasible           & 81.378  & 0.49  & 71.308  & 1.141\\
+10  & 4  & 0.40 & 2  & 16    & feasible           & 78.020  & 0.70  & 78.020  & 1.000\\
+12  & 4  & 0.50 & 3  & 26    & feasible           & 135.269 & 0.97  & 135.269 & 1.000\\
+50  & 8  & 0.25 & 10 & 291   & proven infeasible  & --      & 3.6   & --      & --\\
+100 & 10 & 0.30 & 11 & 1499  & proven infeasible  & --      & 19.1  & --      & --\\
+150 & 12 & 0.35 & 12 & 3942  & proven infeasible  & --      & 9.3   & --      & --\\
+200 & 15 & 0.40 & 20 & 7936  & proven infeasible  & --      & 27.1  & --      & --\\
+200 & 5  & 0.60 & 21 & 11904 & proven infeasible  & --      & 2.6   & --      & --\\
+200 & 20 & 0.10 & 22 & 1974  & proven infeasible  & --      & 256.1 & --      & --\\
+\bottomrule
+\end{tabular}
+\caption{SSD-R on the graded suite. $P_{\text{base}}$ of the three feasible
+runs: 69.77, 68.61, 123.56. The CLI's integer \texttt{runtime\_ms} is 0 for
+the small rows. The table shows sub-millisecond wall time.}
+\end{table}
+
+\textbf{Feasibility.} Every \texttt{feasible=true} output passes the
+independent validator (\texttt{solver/validate.py}). The exact solver
+agrees with every verdict it can check: OPT exists for $n\le12$, and
+branch-and-bound confirms nothing beyond what SSD-R reports.
+
+\subsection{Anomalies}
+\paragraph{A1 --- six of nine benchmarks are infeasible.}
+This is the main finding, and it is a property of the provided generator,
+not a failure of SSD-R. Each \texttt{violation\_reason} is a certificate
+that a reader can check by hand:
+\begin{itemize}
+\item \textbf{seed 10} ($n{=}50$): the triangle $T3$--$T8$--$T23$ has every
+  window equal to $[3,4]$. Three mutually conflicting tasks cannot share
+  2 slots.
+\item \textbf{seed 11} ($n{=}100$): the 4-clique $\{T13, T14, T25, T59\}$ is
+  confined to the 3 slots $[7,9]$.
+\item \textbf{seed 12} ($n{=}150$) and \textbf{seed 20} ($n{=}200, K{=}15$):
+  network demand is $82.8 > 72$ and $94.6 > 90$ Gbps over all slots. This is
+  \emph{structural}. The generator draws $r_k\sim U(1,\lfloor \text{cap}_k /
+  (\lfloor n/K\rfloor+1)\rfloor)$. When that floor is 0
+  ($\lfloor 6/13\rfloor = \lfloor 6/14\rfloor = 0$), Python's
+  \texttt{uniform(1,0)} returns values in $[0,1]$ with mean $0.5$. Expected
+  Net demand is then $0.5n$, against $6K$ of capacity: $75>72$ and
+  $100>90$. We confirmed that these two $(n,K)$ pairs are infeasible at
+  every density in $\{0.02, 0.05, 0.1\}$ for seeds 0--4.
+\item \textbf{seed 21} ($n{=}200, K{=}5$): the triangle $T10$--$T67$--$T73$
+  lies inside $[0,1]$. The same instance also fails capacity in two
+  dimensions, GPU $103.8>40$ and Net $98.2>30$; Stage 1 reports the first
+  certificate it finds.
+\item \textbf{seed 22} ($n{=}200, K{=}20$): the 5-cycle
+  $T102$--$T170$--$T57$--$T198$--$T63$ lies inside $[18,19]$. An odd cycle
+  needs 3 colours, and only 2 slots are available. A single greedy clique
+  pass \emph{missed} this case: the only triangle in it,
+  $\{T63, T102, T198\}$, was not found because the greedy started from the
+  highest-degree vertex. This led us to make the width-2 check an exact
+  bipartiteness test (L4).
+\end{itemize}
+\emph{Why so many?} 31\% of all generator windows have width 2, and 50\%
+have width $\le 3$. If $t$ tasks are confined to a 2-slot window, they
+contain a triangle with probability roughly $1-(1-p^3)^{\binom{t}{3}}$
+(ignoring dependence between triangles). At $p=0.25$ this is 0.27 for
+$t=6$ and 0.59 for $t=8$. In seed 10, windows of exactly width 2 hold 2--7
+tasks each (7 in $[6,7]$). There are $K-1$ such windows, and the odd-cycle
+test also catches cycles longer than 3, so the probability that
+\emph{some} window fails is high. The certificates come from
+Stage~1 alone, in 2.6--256~ms. Without them, a heuristic would either
+search the 6 instances until it timed out or report ``not found'' with no
+reason.
+
+\paragraph{A2 --- seed 1 ratio 1.141.}
+SSD-R puts $T3$ ($w{=}2.80$) in slot 0, and $T5$ ($w{=}5.94$) and $T6$
+($w{=}4.64$) in slot 1. The optimum swaps them: $T3\to1$, $T5,T6\to0$.
+$T3$ conflicts with \emph{both} $T5$ and $T6$, so every single move and
+every pairwise swap is infeasible. Swapping $T3$ with $T5$ puts $T3$ next
+to $T6$. Reaching the optimum needs a simultaneous 3-task exchange, which
+is a Kempe-chain interchange of slots 0 and 1 on the component
+$\{T3,T5,T6\}$. This is the same structure as our tight example (\S4) on a
+real benchmark: L8 commits the conflict hub $T3$ (degree 4, the highest)
+first, and L19--L20 cannot undo it.
+
+\paragraph{A3 --- runtime is not monotone in $n$.}
+The infeasible rows are fast, 2.6~ms at $n{=}200$ for seed 21, because
+Stage~1 returns as soon as the first certificate is found. Intervals are
+scanned from $[0,0]$ upward, so a certificate in a low window is found
+early. Seed 22 takes 256~ms because its certificate is in the last window,
+$[18,19]$, so all $O(K^2)$ intervals, each with a clique search, run first.
+
+\subsection{Scaling on feasible instances}
+None of the graded instances above $n{=}12$ is feasible, so they cannot
+show how the constructive and improvement stages scale. We therefore ran
+20 supplementary instances, with density 0.05 and seeds 0--4, for
+$(n,K)\in\{(25,6),\,(50,8),\,(100,10),\,(200,20)\}$. 19 are feasible and solved. One, $(100,10)$ seed 2,
+is proven infeasible by the \emph{sub-interval} demand check: tasks confined
+to $[1,9]$ need 54.95 Gbps against 54.0. The global check over $[0,9]$
+passes, which is why L3 scans all intervals.
+
+\begin{center}\small
+\begin{tabular}{rrrr}
+\toprule
+$n$ & solved & mean $P$ & mean ms\\
+\midrule
+25 & 5/5 & 457.5 & 5.8\\
+50 & 5/5 & 1193.6 & 26.9\\
+100 & 4/4 & 3071.0 & 118.6\\
+200 & 5/5 & 11317.4 & 768.5\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.78\textwidth]{figures/penalty_vs_n.png}\\[4pt]
+\includegraphics[width=0.78\textwidth]{figures/runtime_vs_n.png}
+\caption{Top: $P(\sigma)$ against $n$ for every feasible run (log scale).
+Orange diamonds are the exact optima for $n\le12$. Bottom: runtime against
+$n$ (log scale). Blue circles are feasible runs; green squares are runs
+ended by a Stage~1 certificate.}
+\end{figure}
+
+\textbf{Penalty} grows roughly as $n^2/K$. $P_{\text{base}}$ sums $w_i(\sigma_i+1)$,
+and with $K$ growing alongside $n$ the average slot index also grows.
+\textbf{Runtime} on feasible instances fits $t\propto n^{2.33}$ on a
+log-log scale. This is below the worst-case $O(n^3Kd)$ of \S3, because
+restarts are rare (none were needed on these 19 instances), so the
+practical cost is one constructive pass ($O(n^2Kd)$) plus local search
+($O(n^2d)$ per pass).
+
+\subsection{Approximation quality vs the exact optimum}
+To go beyond three small data points, we ran SSD-R and the exact solver on
+1200 random small instances: $(n,K,\text{dens})\in\{(6,3,.3),(8,3,.3),(8,4,.4),
+(10,4,.4),(10,3,.2),(12,4,.5)\}$,
+seeds 0--199
+(\texttt{report/data/small\_study.csv}).
+
+\begin{center}\small
+\begin{tabular}{l rr}
+\toprule
+& exact: feasible & exact: infeasible\\
+\midrule
+SSD-R feasible & 823 & 0\\
+SSD-R proven infeasible & 0 & 316\\
+SSD-R not found & 1 & 60\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{itemize}
+\item \textbf{Soundness:} no false certificates (0 in the middle-left
+  cell: SSD-R never proved a feasible instance infeasible) and no wrong
+  feasibility claims (0 in the top-right cell).
+\item \textbf{Completeness of Stage 1:} 316 of 376 infeasible instances
+  (84\%) are certified. The other 60 need a clique larger than the greedy
+  finds, or a colouring argument that is not a clique. They are honestly
+  reported as \texttt{NOT\_FOUND}.
+\item \textbf{Missed feasible:} 1 in 824 (0.12\%), seed 171 of
+  $(12,4,0.5)$. Its exact solution is essentially a unique 4-colouring of a
+  dense graph, with six tasks restricted to 2--3 slot windows. The restart
+  promotions cycle through six tasks
+  ($T4\to T3\to T11\to T8\to T6\to T10\to T4\dots$), and each promoted task
+  displaces the next. During development this count was 58, and two fixes
+  (\S3) reduced it. Restarts (R1--R3) brought it to 2. Forward checking
+  (L10) brought it to 1; it fixed the restart cycle on $(100,10,0.05)$
+  seed 1, where four tasks with nested windows evicted each other in turn.
+\item \textbf{Ratio} over the 823 jointly feasible instances: mean 1.054,
+  median 1.000, 95th percentile 1.242, maximum 1.644. 59.1\% are solved
+  exactly.
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.7\textwidth]{figures/ratio_hist.png}
+\caption{Distribution of $P(\sigma_{\text{SSD-R}})/P(\sigma^\ast)$ over 823
+feasible small instances.}
+\end{figure}

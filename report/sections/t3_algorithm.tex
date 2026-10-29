@@ -1,0 +1,151 @@
+\section{Task 3: Algorithm Design --- SSD-R}
+
+\textbf{SSD-R: SLA-Slack DSATUR with Certified infeasibility and Repair.}
+SSD-R is a hybrid with four stages. Stage 1 certifies infeasibility using
+necessary conditions. Stage 2 is a saturation-ordered constructive greedy
+(DSATUR generalised to windows and capacity) with priority restarts.
+Stage 3 is a one-level eviction repair. Stage 4 is a local search on $P$
+using moves and swaps. Labels L$x$ and R$x$ below appear as comments in
+\texttt{solver/algorithm.py}, so the code can be matched to the pseudocode
+line by line.
+
+\subsection{Pseudocode}
+Notation: $N(i)$ is the set of conflict neighbours of $t_i$, and
+$\text{load}(s)\in\mathbb{R}^d$ is the current load of slot $s$.
+$F(i)=\{s\in[l_i,u_i] : N(i)\cap\sigma^{-1}(s)=\emptyset,\ \text{load}(s)+r_i\le C(s)\}$
+is the set of slots that are currently feasible for $t_i$.
+$c(i,s) = w_i(s+1) + \lambda_R w_i\big(\tfrac{s-l_i}{u_i-l_i}\big)^2$ is the
+separable part of $P$, and $\Delta B$ is the change in the imbalance term.
+
+\begin{algorithm}[h]
+\caption{SSD-R$(T, G, r, C, w, \tau)$}
+\begin{algorithmic}
+\State \textbf{Stage 1 --- certify infeasibility}
+\State L1:\ \textbf{for} each $t_i$: \textbf{if} no $s\in[l_i,u_i]$ has $r_i\le C(s)$ \textbf{return} INFEASIBLE \Comment{fits nowhere}
+\State L2:\ \textbf{for} each interval $[a,b]\subseteq[0,K-1]$: $S\gets\{i: a\le l_i,\ u_i\le b\}$
+\State L3:\ \quad \textbf{if} $\exists k: \sum_{i\in S} r_{ik} > \sum_{s=a}^{b} C_k(s)$ \textbf{return} INFEASIBLE \Comment{interval demand}
+\State L4:\ \quad \textbf{if} $G[S]$ is visibly not $(b{-}a{+}1)$-colourable \textbf{return} INFEASIBLE
+\Statex \hspace{2.6em}\small(width 1: any edge; width 2: odd cycle by BFS; width $\ge3$: greedy clique $>b{-}a{+}1$)\normalsize
+\State \textbf{Stage 2 --- construct, with restarts}
+\State R1:\ $\Pi\gets[\,]$; \textbf{repeat} at most $n$ times: \Comment{$\Pi$: promoted tasks}
+\State R2:\ \quad run L5--L11 with promotion list $\Pi$; \textbf{if} it succeeds \textbf{goto} L18
+\State R3:\ \quad move the failed task to the front of $\Pi$
+\State \quad \textbf{return} NOT\_FOUND (best partial $\sigma$)
+\State L5:\ \quad $U\gets T$, $\sigma\gets\emptyset$
+\State L6:\ \quad \textbf{while} $U\neq\emptyset$:
+\State L7:\ \qquad compute $F(i)$ for all $i\in U$
+\State L8:\ \qquad $i^\ast\gets\arg\min_{i\in U}\big(\text{rank}_\Pi(i),\ |F(i)|,\ -\deg(i),\ -w_i,\ i\big)$
+\State L9:\ \qquad \textbf{if} $F(i^\ast)=\emptyset$: $F(i^\ast)\gets\textsc{Repair}(i^\ast)$; \textbf{if} still $\emptyset$ \textbf{fail with} $i^\ast$
+\State L10:\ \qquad $S\gets\{s\in F(i^\ast): \nexists j\in U{\setminus}\{i^\ast\}$ with $F(j)=\{s\}$ that $i^\ast$ would block$\}$, or $F(i^\ast)$ if empty
+\Statex \hspace{3.6em} $\sigma(i^\ast)\gets\arg\min_{s\in S}\big(c(i^\ast,s)+\lambda_B\Delta B,\ s\big)$ \Comment{forward check, then cheapest}
+\State L11:\ \qquad $U\gets U\setminus\{i^\ast\}$
+\State \textbf{Stage 3 --- }\textsc{Repair}$(i)$
+\State L12:\ \textbf{for} $s=l_i,\dots,u_i$:
+\State L13:\ \quad $B\gets N(i)\cap\sigma^{-1}(s)$ \Comment{conflict blockers}
+\State L14:\ \quad \textbf{while} $r_i$ does not fit in $s$ without $B$: add to $B$ the largest task of $s$ \Comment{overflowing dim}
+\State L15:\ \quad tentatively move each $j\in B$ to its cheapest feasible slot $\neq s$
+\State L16:\ \quad \textbf{if} all moved and $s\in F(i)$ \textbf{return} $\{s\}$ \textbf{else} roll back
+\State L17:\ \textbf{return} $\emptyset$
+\State \textbf{Stage 4 --- improve}
+\State L18:\ \textbf{repeat} until no improvement (at most 50 passes):
+\State L19:\ \quad for each $i$ and $s\in[l_i,u_i]$: move $i\to s$ if feasible and $\Delta P<-\varepsilon$
+\State L20:\ \quad for each pair $i,j$ with $\sigma(i)\ne\sigma(j)$: swap if feasible and $\Delta P<-\varepsilon$
+\State L21:\ \textbf{return} $\sigma$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Line-level justification}
+\begin{description}
+\item[L1, L3] Each is a necessary condition. If one fails, the failure is a
+  checkable proof of infeasibility (Lemma~\ref{lem:cert}). L3 covers every
+  interval, not only $[0,K-1]$. Tasks with narrow windows can overload a
+  sub-range even when the global totals fit.
+\item[L4] Tasks confined to $[a,b]$ must be coloured with $b-a+1$ colours.
+  For width 2 this is exactly bipartiteness, which BFS decides in linear
+  time, so the check is \emph{exact}. Across the 9 benchmarks, 31\% of
+  windows have width 2, and 50\% have width at most 3, so this case
+  matters most in practice. For width $\ge 3$,
+  $k$-colourability is NP-hard. A clique larger than the width is a sound
+  but incomplete certificate; it is grown greedily from every start vertex.
+\item[L8] This is the core DSATUR idea, adapted to this problem. A task's
+  ``saturation'' is the number of slots \emph{still} open to it, which
+  shrinks through conflicts (F1), capacity (F2) \emph{and} the window (F3).
+  The most constrained task is placed first, while it still has options.
+  Ties go to higher degree, because that task constrains the most others,
+  then to heavier weight, because it should get the earlier slot. Index
+  breaks the final tie, so runs are deterministic.
+\item[L10] First a forward check: a slot is skipped if it is the
+  \emph{last} feasible slot of another unplaced task $j$, and $i^\ast$
+  would block it there (a conflict with $j$, or no capacity left for both).
+  Among the remaining slots, the task takes the one that adds the least to
+  $P$. Without the forward check, the cheapest-slot rule repeatedly walked
+  into dead ends. On $(100,10,0.05)$ seed 1, four tasks with nested windows
+  evicted each other in a cycle through all $n$ restarts (\S6). The tie
+  rule ``lower slot'' keeps zero-weight tasks deterministic (used in the
+  tight example, \S4).
+\item[L14] If capacity, not a conflict, is what blocks $i$, the largest
+  task in the overflowing dimension is evicted first, so that as few tasks
+  as possible move.
+\item[L15--L16] Repair goes only one level deep: evicted tasks must go to
+  slots that are already feasible for them. Chains of evictions would turn
+  repair into a full search. All moves are rolled back on failure, so the
+  partial assignment stays feasible at all times.
+\item[R1--R3] Squeaky-wheel restarts. A task that fails late was usually
+  squeezed out by earlier choices, so it is promoted to go first in the
+  next pass. On 1200 random small instances, restarts cut the feasible
+  instances that SSD-R missed from 58 to 2 (\S6).
+\item[L19--L20] A move lowers $P$ directly. A swap fixes cases that no
+  single move can, for example when a full slot holds a light task and a
+  heavy task waits in a later slot. Only strict improvements are accepted,
+  so $P$ falls at every step and the search cannot cycle.
+\end{description}
+
+\subsection{Complexity}
+Stage 1 checks $O(K^2)$ intervals. Each costs $O(nd)$ for demand and
+$O(n^2\omega)$ for the clique, where $\omega$ is the clique size. One pass
+of L5--L11 does $n$ iterations, each computing $F$ for at most $n$ tasks in
+$O(Kd)$ using a per-(task, slot) conflict counter. Repair costs
+$O(K\cdot n\cdot Kd)$. With at most $n$ restarts, Stage 2 is
+$O(n^3Kd + n^2K^2d)$. One local-search pass is $O(n^2 d)$, with at most 50
+passes. Every term is polynomial in $n, K, d$. Measured runtimes are
+in~\S6.
+
+\subsection{Design rationale}
+The problem is DSATUR-shaped because, on generator instances, the binding
+constraint is almost always the \emph{interaction of narrow SLA windows
+with conflicts}. Most windows span only 2--3 slots, so a task with a few
+neighbours already in its window has no slot left. A greedy that ignores
+how many options each task has left (for example, heaviest weight first)
+places flexible tasks first and strands the constrained ones. Saturation
+ordering places each task while it still has a choice.
+
+Stage 1 comes first because infeasibility is \emph{common} on these
+instances. Six of the nine graded benchmarks are infeasible (\S6). A
+heuristic that only reports ``not found'' cannot tell a hard instance from
+an impossible one. Certificates make that distinction and give the
+operator an actionable reason, such as ``these 5 bureau pulls form an odd
+conflict cycle inside a 2-slot SLA window''.
+
+Penalty-awareness appears in two places. L10 is a myopic cost-aware
+choice. Stage 4 recovers the global trade-offs, such as delay against SLA
+risk against load balance, that a one-pass greedy cannot see.
+
+\subsection{Alternatives considered and rejected}
+\begin{enumerate}
+\item \textbf{Exact branch-and-bound (or an ILP).} This gives the optimal
+  $\sigma$, and the infeasibility proof is exhaustive. We implemented it
+  (\texttt{solver/bruteforce.py}) and use it as ground truth. It was
+  rejected as the main algorithm because it is exponential: $K^n$ leaves in
+  the worst case, which is $20^{200}$ for the sparse stress instance.
+  Writing it as an ILP would also need a forbidden solver.
+\item \textbf{Simulated annealing on a relaxed objective} $P(\sigma) + M
+  \cdot \#\text{violations}$. It is easy to write, and the penalty handles
+  all three constraint families the same way. It was rejected for three
+  reasons. (i) It can never \emph{prove} infeasibility. On the 6 infeasible
+  benchmarks it would run to its time limit and report ``best effort, still
+  violating'', with no reason. (ii) It is randomised, so a viva trace or a
+  production incident cannot be reproduced without the seed, and its
+  quality depends on the cooling schedule, $M$ and the iteration budget.
+  (iii) It has no worst-case structure from which an approximation ratio
+  can be derived.
+\end{enumerate}

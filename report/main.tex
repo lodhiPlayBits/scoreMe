@@ -1,0 +1,37 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{definition}{Definition}
+
+\title{MSME Credit Pipeline Scheduling\\\large ScoreMe Advanced Systems Design Assessment}
+\author{Gaurav Lodhi}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section*{Conventions}
+Slots are 0-based, $\sigma(t_i) \in \{0,\dots,K-1\}$, exactly as the provided
+generator produces windows. The base penalty therefore charges $\sigma(t_i)+1$,
+which equals the spec's 1-based slot index: slot 0 still costs $w_i$, and the
+optimum is never 0. The toy instance of \S3.3 is stored with its windows
+shifted by $-1$. We write $W = \sum_i w_i$.
+
+\input{sections/t1_np_hardness}
+\input{sections/t2_penalty}
+\input{sections/t3_algorithm}
+\input{sections/t4_proofs}
+\input{sections/t5_implementation}
+\input{sections/t6_benchmarks}
+\input{sections/t7_journal}
+\input{sections/t8_viva}
+
+\end{document}

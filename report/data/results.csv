@@ -1,0 +1,30 @@
+group,n,K,density,seed,edges,status,feasible,penalty,p_base,runtime_ms,runtime_ms_float,opt_penalty,ratio,opt_runtime_ms,reason
+benchmark,8,3,0.3,1,11,FEASIBLE,True,81.3779,69.7676,0,0.491,71.3081,1.1412,0.17,
+benchmark,10,4,0.4,2,16,FEASIBLE,True,78.0203,68.6126,0,0.704,78.0203,1.0,0.22,
+benchmark,12,4,0.5,3,26,FEASIBLE,True,135.2686,123.5632,0,0.969,135.2686,1.0,0.44,
+benchmark,50,8,0.25,10,291,PROVEN_INFEASIBLE,False,,,3,3.623,,,,"PROVEN_INFEASIBLE: an odd conflict cycle (T8, T3, T23) is confined to the 2 slot(s) [3, 4], which needs more than 2 colours"
+benchmark,100,10,0.3,11,1499,PROVEN_INFEASIBLE,False,,,19,19.14,,,,"PROVEN_INFEASIBLE: 4 mutually conflicting tasks (T59, T13, T14, T25) are confined to the 3 slots [7, 9]"
+benchmark,150,12,0.35,12,3942,PROVEN_INFEASIBLE,False,,,9,9.329,,,,"PROVEN_INFEASIBLE: tasks confined to slots [0, 11] need 82.815 of dim 3, those slots offer only 72.000"
+benchmark,200,15,0.4,20,7936,PROVEN_INFEASIBLE,False,,,27,27.143,,,,"PROVEN_INFEASIBLE: tasks confined to slots [0, 14] need 94.565 of dim 3, those slots offer only 90.000"
+benchmark,200,5,0.6,21,11904,PROVEN_INFEASIBLE,False,,,2,2.604,,,,"PROVEN_INFEASIBLE: an odd conflict cycle (T67, T10, T73) is confined to the 2 slot(s) [0, 1], which needs more than 2 colours"
+benchmark,200,20,0.1,22,1974,PROVEN_INFEASIBLE,False,,,256,256.108,,,,"PROVEN_INFEASIBLE: an odd conflict cycle (T102, T170, T57, T198, T63) is confined to the 2 slot(s) [18, 19], which needs more than 2 colours"
+supplementary,25,6,0.05,0,19,FEASIBLE,True,508.7282,494.1362,5,5.507,,,,
+supplementary,25,6,0.05,1,24,FEASIBLE,True,483.0824,454.3819,4,4.868,,,,
+supplementary,25,6,0.05,2,17,FEASIBLE,True,425.9176,409.4827,5,5.892,,,,
+supplementary,25,6,0.05,3,16,FEASIBLE,True,425.4408,405.2596,6,6.645,,,,
+supplementary,25,6,0.05,4,18,FEASIBLE,True,444.2444,423.2461,5,6.019,,,,
+supplementary,50,8,0.05,0,88,FEASIBLE,True,1156.464,1113.7921,27,27.515,,,,
+supplementary,50,8,0.05,1,67,FEASIBLE,True,1031.6261,1007.4275,27,27.27,,,,
+supplementary,50,8,0.05,2,62,FEASIBLE,True,1342.0111,1317.1595,28,28.794,,,,
+supplementary,50,8,0.05,3,57,FEASIBLE,True,1106.135,1082.1947,26,26.883,,,,
+supplementary,50,8,0.05,4,64,FEASIBLE,True,1331.565,1277.2616,24,24.124,,,,
+supplementary,100,10,0.05,0,280,FEASIBLE,True,2919.7488,2846.4138,110,110.996,,,,
+supplementary,100,10,0.05,1,267,FEASIBLE,True,2995.5838,2919.2087,152,152.987,,,,
+supplementary,100,10,0.05,2,251,PROVEN_INFEASIBLE,False,,,7,7.753,,,,"PROVEN_INFEASIBLE: tasks confined to slots [1, 9] need 54.948 of dim 3, those slots offer only 54.000"
+supplementary,100,10,0.05,3,233,FEASIBLE,True,3194.1469,3120.5779,111,111.227,,,,
+supplementary,100,10,0.05,4,230,FEASIBLE,True,3174.6317,3095.2017,99,99.261,,,,
+supplementary,200,20,0.05,0,1068,FEASIBLE,True,10614.5632,10537.792,759,760.182,,,,
+supplementary,200,20,0.05,1,1025,FEASIBLE,True,11417.3216,11354.6414,760,760.775,,,,
+supplementary,200,20,0.05,2,996,FEASIBLE,True,10830.5682,10756.8461,765,766.225,,,,
+supplementary,200,20,0.05,3,997,FEASIBLE,True,12290.9835,12210.5812,725,725.851,,,,
+supplementary,200,20,0.05,4,977,FEASIBLE,True,11433.5709,11363.8337,828,829.408,,,,

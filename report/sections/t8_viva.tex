@@ -1,0 +1,68 @@
+\section{Task 8: Viva Preparation Notes}
+
+\subsection{Hand trace: toy instance}
+Using 0-based slots, the toy instance's windows are $T1{:}[0,2]$,
+$T2{:}[0,3]$, $T3{:}[0,3]$, $T4{:}[1,3]$, $T5{:}[0,3]$ and $T6{:}[1,3]$.
+Stage 1 passes: total demand is within capacity, and the conflict graph
+is the 6-cycle $T1$--$T2$--$T4$--$T6$--$T5$--$T3$--$T1$. That cycle is even,
+so the largest clique is 2 and no odd cycle exists. Stage 2 then runs as
+follows (\texttt{python run.py --input instances/toy.json --trace}). Every
+task has degree 2, so ties on $|F|$ are broken by weight.
+\begin{center}\small
+\begin{tabular}{c l l l}
+\toprule
+step & chosen (L8) & why & $F$ $\to$ slot (L10)\\
+\midrule
+1 & $T1$ & $|F|=3$, tied with $T4,T6$; heaviest ($w{=}5$) & $\{0,1,2\}\to0$\\
+2 & $T2$ & $|F|=3$, tied with $T3,T4,T6$; heaviest ($w{=}4$) & $\{1,2,3\}\to1$\\
+3 & $T4$ & $|F|=2$ ($T2$ blocks slot 1) & $\{2,3\}\to2$\\
+4 & $T6$ & $|F|=2$ ($T4$ blocks slot 2) & $\{1,3\}\to1$\\
+5 & $T3$ & $|F|=2$: $T1$ blocks 0, and slot 1 Net $3+1.5+2>6$ (F2) & $\{2,3\}\to2$\\
+6 & $T5$ & only task left; $T6$ blocks 1, $T3$ blocks 2 & $\{0,3\}\to0$\\
+\bottomrule
+\end{tabular}
+\end{center}
+L19 and L20 find no improving step. The result is $P=38.53$, against the
+exact optimum $P^\ast=37.90$ (ratio 1.017). The optimum puts $T1,T4,T5$
+together in slot 1 (32 CPU and 8 GPU, exactly at capacity). Practise this
+trace until it matches the \texttt{--trace} output line by line. Also
+practise one fresh \texttt{generate\_instance(6, 3, seed=...)} instance,
+checked with \texttt{--trace} and \texttt{--solver brute}.
+
+\subsection{Prepared answers}
+\textbf{``What if I add a 5th resource dimension?''} Nothing in the code
+changes. $d$ is read from the input (\texttt{Instance.d}). Every capacity
+check loops over $k<d$, and $B$ averages over $d$ dimensions. Costs grow
+linearly in $d$, from $O(n^2Kd)$ upward. Proofs: Lemma~\ref{lem:cert} and
+Theorem~\ref{thm:sound} are per dimension, so they still hold. The bound
+$B\le W/4$ is unchanged, because it is an average. One effect: an extra
+binding dimension can only shrink $F(i)$, so there are more restarts and
+more \texttt{NOT\_FOUND}s. The test \texttt{test\_five\_dimensions} shows
+the 5th dimension deciding the placement.
+
+\textbf{``What if two slots have different capacities?''} Already
+supported. Capacities are stored per slot, $C(s)$, and every F2 check and
+the L3 interval sum use $C(s)$. $B$ uses utilisation $\text{load}/C(s)$, so
+a half-size slot at 50\% load counts as 50\%, not 25\%, and zero-capacity
+cells are excluded. The test \texttt{test\_unequal\_capacities} covers it.
+One subtlety: L1 (``task fits nowhere'') becomes more powerful, because a
+large task may fit only in the big slots.
+
+\textbf{``A decision you would make differently in hindsight?''} I would
+build the local search around Kempe-chain interchanges from the start,
+rather than single moves and pairwise swaps. Both the benchmark ratio of
+1.141 and the tight example are 3-task traps that a Kempe move escapes.
+I chose move and swap because they are simple to prove sound and cheap,
+but they are exactly the neighbourhood the adversary exploits.
+
+\textbf{Things to know cold:}
+\begin{itemize}
+\item why slots are 0-based with $\sigma+1$ in the penalty;
+\item why the width-2 check is exact;
+\item why every certificate is sound (Lemma~\ref{lem:cert});
+\item the order key at L8: $(\text{promoted}, |F|, -\deg, -w, i)$;
+\item why the forward check exists;
+\item why $\alpha$ needs no credit from the greedy;
+\item how the tight family traps moves and swaps;
+\item the generator's \texttt{uniform(1,0)} effect.
+\end{itemize}
