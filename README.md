@@ -1,10 +1,10 @@
 # ScoreMe MSME Credit Pipeline Scheduling
 
-The candidate's submission for the ScoreMe "Advanced Systems Design" coding assignment. The plan is in [docs/roadmap/2026-10-29-scoreme-assignment.md](docs/roadmap/2026-10-29-scoreme-assignment.md).
+The candidate's submission for the ScoreMe "Advanced Systems Design" coding assignment. The full write-up is [report/main.pdf](report/main.pdf).
 
 ## Slot convention
 
-- **Slots are 0-based** (`0 .. K-1`), exactly as `generator.py` produces windows. This was decided 2026-10-29 (roadmap Q1).
+- **Slots are 0-based** (`0 .. K-1`), exactly as `generator.py` produces windows.
 - The penalty charges `σ(tᵢ) + 1` per task, so slot 0 is not free and the optimum is never 0.
 - `instances/toy.json` is the toy instance from the assignment (section 3.3). Its SLA windows are **shifted by −1** from the spec's 1-based values; for example, the spec gives T1:[1,3], which is stored as [0,2].
 - Task names are kept as `T1..T6`; task indices in `conflicts`, `resources`, `windows` and `weights` are 0-based.

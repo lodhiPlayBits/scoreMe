@@ -1,37 +1,39 @@
 \section{Task 7: Design Journal}
 
 \subsection{The hardest design decision: what Stage 1 is allowed to claim}
-The hardest decision was in Stage 1, and it was not about speed. It was
-about \emph{what my algorithm is allowed to say}. My first version had a
-single greedy clique check (largest degree first) for every interval. When
-I ran it on benchmark seed 22 ($n{=}200$, $K{=}20$), SSD-R placed 6 tasks
-and then returned \texttt{NOT\_FOUND} on $T63$. At that point I had to
-choose. One option was to strengthen the search, with more restarts or a
-deeper repair, and treat the instance as hard. The other was to treat it
-as possibly impossible and strengthen the \emph{proof}.
+The toughest call was in Stage 1 and it wasn't about speed. It was on
+\emph{what my algorithm is allowed to say}. My first version had a single
+greedy clique check (largest degree first) per interval. I ran it on
+benchmark seed 22 ($n{=}200$, $K{=}20$). SSD-R placed 6 tasks and returned
+\texttt{NOT\_FOUND} on $T63$.
 
-Looking at the tasks confined to window $[18,19]$ settled it. $T63$,
-$T102$ and $T198$ form a triangle, and my greedy clique, starting from the
-highest-degree vertex, had walked past it. No amount of search could ever
-have succeeded. The trade-off was between a general but incomplete
-certificate (cliques for every width) and an exact but narrow one. I chose
-both. For width-2 intervals, colourability is exactly bipartiteness, which
-BFS decides in linear time. So I made that case exact (an odd-cycle
-certificate), and kept the clique heuristic only for width $\ge3$. The
-rejected alternative was a small exact colouring search on each interval.
-It is more complete, but it is exponential in the worst case, and it would
-blur the clean line I wanted: Stage 1 is polynomial and never wrong,
-Stages 2--4 are polynomial and may give up. The deciding fact was the
-data: 31\% of generator windows have width 2, so the exact case covers
-the most common situation. After the change, all six large benchmarks come
-with a certificate a reviewer can check by hand.
+I had to make a decision then. One possibility was to increase the search
+effort, by performing more restarts or a deeper repair, and treat the
+instance as hard. The other was to treat it as possibly impossible and
+strengthen the \emph{proof}.
+
+Examining the tasks confined to window $[18,19]$ settled it. $T63$, $T102$
+and $T198$ form a triangle, and my greedy clique, starting from the highest
+degree vertex, had walked by it. No search could ever have been successful.
+The trade-off was between a general but incomplete certificate (cliques for
+every width) and an exact but narrow one. I picked both. Colorability of
+width-2 intervals is precisely bipartiteness, which can be decided by BFS
+in linear time. So I made that case exact (odd-cycle certificate) and kept
+the clique heuristic only for width $\ge3$. The alternative I discarded was
+a small exact coloring search over each interval. It is more complete, but
+it is exponential in the worst case, and it would blur the clean line I
+wanted: Stage 1 is polynomial and never wrong, while Stages 2--4 are
+polynomial and may give up. The deciding factor was the data: 31\% of
+generator windows are width 2, so the exact case covers the most common
+situation. After the change, all six large benchmarks have a certificate
+that a reviewer can check manually.
 
 \subsection{Where SSD-R failed empirically, and the next week}
 \textbf{Failure 1 --- benchmark $(8,3,0.3)$, seed 1, ratio 1.141.} SSD-R
-puts the conflict hub $T3$ (degree 4, weight 2.8) in slot 0, and pushes
+assigns the conflict hub $T3$ (degree 4, weight 2.8) to slot 0, and moves
 $T5$ (5.94) and $T6$ (4.64) to slot 1. The optimum swaps them, but $T3$
-conflicts with both, so no single move or pairwise swap is feasible. The
-local search is stuck in a 3-task trap. My own tight example (\S4) has the
+conflicts with both of them, so no single move or pair swap is possible.
+Local search is stuck in a 3-task trap. My own tight example (\S4) has the
 same structure; I had built it on paper before seeing it in a benchmark.
 
 \textbf{Failure 2 --- random instance $(12,4,0.5)$, seed 171:
@@ -71,32 +73,34 @@ over the queued jobs. Stage~1 is the most valuable part operationally. If
 the queued work \emph{cannot} meet its SLAs, it reports exactly which jobs
 collide and where: ``these 5 statements form an odd conflict cycle inside a
 2-cycle window'', or ``Net demand over cycles 1--9 exceeds the link''.
-That is actionable. The platform team can add a GPU node, re-partition the
-topic, or tell the lender before the SLA breaches, not after. The $R$ term
-of $P$ keeps jobs away from their SLA edge, so that a single OCR retry does
-not cause a breach. The $B$ term stops one cycle from saturating the GPUs
-while the next sits idle.
+This can be acted on. The platform team can add a new GPU node, rebalance
+the topic or even warn the lender ahead of the SLA breaching. The $R$ term
+of $P$ ensures that jobs don't get too close to their SLA limit. This means
+that one OCR retry won't cause any SLA issues. The $B$ term ensures that we
+don't overload the GPUs in one cycle and leave the next cycle waiting.
 
 \subsection{What surprised me}
 \begin{itemize}
-\item \textbf{The provided benchmarks are mostly infeasible.} Six of the
-  nine are. Two of them are infeasible for a reason that has nothing to do
-  with scheduling: the generator calls \texttt{uniform(1, cap//(n//K+1))},
-  and for $n{=}150, K{=}12$ that upper limit is $6//13=0$. Python then
-  silently samples from $[0,1]$, and Net demand ends up above capacity at
-  every conflict density. I expected the stress instances to stress the
-  heuristic. They stress the infeasibility detector instead.
-\item \textbf{Proving ``impossible'' quickly was more valuable than
-  optimising.} Most of my effort in the end went into Stage 1 and the
-  failure modes, not into the objective.
-\item \textbf{The approximation bound gives the clever parts no credit.}
-  The ratio comes entirely from \emph{feasibility} (every task stays inside
-  its window). The greedy and the local search contribute nothing to the
-  worst case. I only believed this once the tight example showed SSD-R
-  hitting the bound exactly, and once the same trap then appeared on a
-  real benchmark.
-\item \textbf{About my own thinking:} my first instinct with each failure
-  was to add search. Every real improvement came from first asking whether
-  the instance was solvable at all, and checking that against the exact
-  solver.
+\item \textbf{The benchmarks are generally impossible to solve.} 6 out of
+  9 benchmarks. 2 of these are impossible to solve due to something outside
+  of the scheduling problem itself. The generator uses
+  \texttt{uniform(1, cap//(n//K+1))}, so for $n{=}150$ and $K{=}12$ the
+  maximum value is $6//13=0$. Python then automatically samples from the
+  range $[0,1]$. The Net demand exceeds capacity at all conflict densities.
+  I was expecting the stress tests to be stressful for the heuristic.
+  However, they were stressful for the infeasibility detection part of the
+  algorithm.
+\item \textbf{Overall, proving that an instance was impossible to solve,
+  quickly, was more useful than optimising.} Most of the work was done in
+  Stage 1 and in understanding failure modes.
+\item \textbf{The approximation ratio does not reward any of the smart
+  parts.} It is purely based on feasibility: all tasks fit within their
+  time window. Nothing is contributed by the greedy or local search
+  algorithms. However, I only realised this after seeing a tight example
+  which showed that SSD-R hits the bound exactly, and then seeing this trap
+  occur in an actual benchmark.
+\item \textbf{In my thinking process} the first thought was to add more
+  search to overcome a failure. However, all actual improvements came from
+  first checking if the instance was even solvable, and comparing against
+  the exact solver.
 \end{itemize}
